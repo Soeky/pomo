@@ -2,10 +2,10 @@ package main
 
 import (
 	"database/sql"
-	"filepath"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	_ "modernc.org/sqlite" // SQLite driver
