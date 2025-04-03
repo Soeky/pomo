@@ -96,7 +96,7 @@ func StopCurrentSession() error {
 
 func GetCurrentSession() (*Session, error) {
 	row := db.QueryRow(`
-        SELECT id, type, topic, start_time
+        SELECT id, type, topic, start_time, duration
         FROM sessions
         WHERE end_time IS NULL
         ORDER BY start_time DESC
@@ -104,12 +104,14 @@ func GetCurrentSession() (*Session, error) {
     `)
 
 	var s Session
-	err := row.Scan(&s.ID, &s.Type, &s.Topic, &s.StartTime)
+	var durationSec sql.NullInt64
+	err := row.Scan(&s.ID, &s.Type, &s.Topic, &s.StartTime, &durationSec)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	} else if err != nil {
 		return nil, err
 	}
 
+	s.Duration = durationSec
 	return &s, nil
 }
