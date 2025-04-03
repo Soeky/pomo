@@ -39,13 +39,20 @@ func InitDB() {
 }
 
 func getDBPath() string {
-	dataDir, err := os.UserConfigDir()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		home, _ := os.UserHomeDir()
-		dataDir = filepath.Join(home, ".local", "share") // fallback
+		// ganz harter Fallback, nur im Notfall:
+		log.Println("⚠️  Konnte Home-Verzeichnis nicht ermitteln – speichere pomo.db im aktuellen Verzeichnis")
+		return "pomo.db"
 	}
-	pomoDir := filepath.Join(dataDir, "pomo")
-	os.MkdirAll(pomoDir, 0755)
+
+	// ~/.local/share/pomo/pomo.db
+	pomoDir := filepath.Join(homeDir, ".local", "share", "pomo")
+	err = os.MkdirAll(pomoDir, 0755)
+	if err != nil {
+		log.Println("⚠️  Konnte Datenverzeichnis nicht anlegen – speichere pomo.db im aktuellen Verzeichnis")
+		return "pomo.db"
+	}
 
 	return filepath.Join(pomoDir, "pomo.db")
 }
