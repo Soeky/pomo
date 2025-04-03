@@ -22,6 +22,7 @@ func showStats(args []string) {
 
 	fmt.Printf("📅 %s\n\n", formatRangeName(rangeStr))
 
+	// 🍅 Fokus
 	fmt.Println("🍅 Fokus:")
 	totalFocusDur := 0
 	totalFocusCount := 0
@@ -37,6 +38,7 @@ func showStats(args []string) {
 		fmt.Println("Keine Fokuszeit.")
 	}
 
+	// 💤 Pausen
 	fmt.Println("\n💤 Pausen:")
 	if breakStats.Count > 0 {
 		fmt.Printf("- %dx – %d min\n", breakStats.Count, breakStats.TotalMinutes)
@@ -45,10 +47,18 @@ func showStats(args []string) {
 	} else {
 		fmt.Println("Keine Pausen.")
 	}
+
+	// 🧠 Gesamt
 	fmt.Println("\n🧠 Gesamt:")
 	fmt.Printf("Fokuszeit:  %s h\n", formatMinutesToHM(totalFocusDur))
 	fmt.Printf("Pausenzeit: %s h\n", formatMinutesToHM(breakStats.TotalMinutes))
+	fmt.Println() // 👉 wichtig: extra Zeile zur Trennung vom Prompt
+}
 
+func formatMinutesToHM(mins int) string {
+	h := mins / 60
+	m := mins % 60
+	return fmt.Sprintf("%02d:%02d", h, m)
 }
 
 type FocusStat struct {
@@ -146,9 +156,4 @@ func formatRangeName(view string) string {
 	default:
 		return view
 	}
-}
-func formatMinutesToHM(mins int) string {
-	h := mins / 60
-	m := mins % 60
-	return fmt.Sprintf("%02d:%02d", h, m)
 }
