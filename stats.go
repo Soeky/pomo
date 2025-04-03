@@ -45,6 +45,10 @@ func showStats(args []string) {
 	} else {
 		fmt.Println("Keine Pausen.")
 	}
+	fmt.Println("\n🧠 Gesamt:")
+	fmt.Printf("Fokuszeit:  %s h\n", formatMinutesToHM(totalFocusDur))
+	fmt.Printf("Pausenzeit: %s h\n", formatMinutesToHM(breakStats.TotalMinutes))
+
 }
 
 type FocusStat struct {
@@ -142,4 +146,9 @@ func formatRangeName(view string) string {
 	default:
 		return view
 	}
+}
+func formatMinutesToHM(mins int) string {
+	h := mins / 60
+	m := mins % 60
+	return fmt.Sprintf("%02d:%02d", h, m)
 }
