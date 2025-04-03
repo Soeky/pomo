@@ -55,7 +55,6 @@ func getDBPath() string {
 	}
 
 	dbPath := filepath.Join(pomoDir, "pomo.db")
-	fmt.Println("📦 Datenbankpfad:", dbPath) // Debug-Ausgabe
 	return dbPath
 }
 
