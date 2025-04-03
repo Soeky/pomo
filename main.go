@@ -48,25 +48,35 @@ func showStatus() {
 	now := time.Now()
 	elapsed := now.Sub(session.StartTime)
 
-	var defaultDuration time.Duration
+	var duration time.Duration
 	var emoji string
 	var typ string
 
+	// Dauer aus DB (fallback auf config)
+	if session.Duration.Valid {
+		duration = time.Duration(session.Duration.Int64) * time.Second
+	} else {
+		switch session.Type {
+		case "focus":
+			duration = time.Duration(AppConfig.DefaultFocus) * time.Minute
+		case "break":
+			duration = time.Duration(AppConfig.DefaultBreak) * time.Minute
+		}
+	}
+
 	switch session.Type {
 	case "focus":
-		defaultDuration = 25 * time.Minute
 		emoji = "🍅"
 		typ = "F"
 	case "break":
-		defaultDuration = 5 * time.Minute
 		emoji = "💤"
 		typ = "B"
 	}
 
-	remaining := defaultDuration - elapsed
+	remaining := duration - elapsed
 	formattedTime := formatShortDuration(remaining)
 
-	// Wenn überzogen → Emoji wechseln je nach Sekunde
+	// Überziehung: Emoji wechselt
 	if remaining < 0 {
 		if now.Second()%2 == 0 {
 			emoji = "💥"

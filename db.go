@@ -2,8 +2,10 @@ package main
 
 import (
 	"database/sql"
+	"filepath"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	_ "modernc.org/sqlite" // SQLite driver
@@ -12,8 +14,10 @@ import (
 var db *sql.DB
 
 func InitDB() {
+	dbPath := getDBPath()
+
 	var err error
-	db, err = sql.Open("sqlite", "pomo.db")
+	db, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal("DB open error:", err)
 	}
@@ -32,6 +36,18 @@ func InitDB() {
 	if err != nil {
 		log.Fatal("DB init error:", err)
 	}
+}
+
+func getDBPath() string {
+	dataDir, err := os.UserConfigDir()
+	if err != nil {
+		home, _ := os.UserHomeDir()
+		dataDir = filepath.Join(home, ".local", "share") // fallback
+	}
+	pomoDir := filepath.Join(dataDir, "pomo")
+	os.MkdirAll(pomoDir, 0755)
+
+	return filepath.Join(pomoDir, "pomo.db")
 }
 
 type Session struct {
