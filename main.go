@@ -50,7 +50,6 @@ func showStatus() {
 
 	var duration time.Duration
 	var emoji string
-	var typ string
 
 	// Dauer aus DB (fallback auf config)
 	if session.Duration.Valid {
@@ -67,10 +66,8 @@ func showStatus() {
 	switch session.Type {
 	case "focus":
 		emoji = "🍅"
-		typ = "F"
 	case "break":
 		emoji = "💤"
-		typ = "B"
 	}
 
 	remaining := duration - elapsed
@@ -85,7 +82,7 @@ func showStatus() {
 		}
 	}
 
-	fmt.Printf("%s %s %s\n", emoji, typ, formattedTime)
+	fmt.Printf("%s %s\n", emoji, formattedTime)
 }
 
 func formatShortDuration(d time.Duration) string {
