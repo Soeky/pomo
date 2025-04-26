@@ -99,6 +99,30 @@ func StopCurrentSession() error {
 	return err
 }
 
+func StopCurrentSessionAt(endTime time.Time) error {
+	row := DB.QueryRow(`SELECT id, start_time FROM sessions WHERE end_time IS NULL ORDER BY start_time DESC LIMIT 1`)
+
+	var id int
+	var startTime time.Time
+
+	err := row.Scan(&id, &startTime)
+	if err == sql.ErrNoRows {
+		return nil // Keine offene Session, kein Fehler
+	} else if err != nil {
+		return err
+	}
+
+	duration := int(endTime.Sub(startTime).Seconds())
+
+	_, err = DB.Exec(`
+        UPDATE sessions
+        SET end_time = ?, duration = ?
+        WHERE id = ?
+    `, endTime, duration, id)
+
+	return err
+}
+
 func GetCurrentSession() (*Session, error) {
 	row := DB.QueryRow(`
         SELECT id, type, topic, start_time, duration
