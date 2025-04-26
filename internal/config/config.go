@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/json"
@@ -8,7 +8,7 @@ import (
 )
 
 type Config struct {
-	DefaultFocus int `json:"default_focus"` // in Minuten
+	DefaultFocus int `json:"default_focus"`
 	DefaultBreak int `json:"default_break"`
 }
 
@@ -18,18 +18,16 @@ func LoadConfig() {
 	configPath := getConfigPath()
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		// config.json existiert nicht → erstellen
 		AppConfig = Config{DefaultFocus: 25, DefaultBreak: 5}
 		err := saveDefaultConfig(configPath)
 		if err != nil {
-			fmt.Println("⚠️  Konnte default config nicht schreiben:", err)
+			fmt.Println("⚠️  Konnte Default-Config nicht schreiben:", err)
 		} else {
-			fmt.Println("📁 Default config erstellt unter:", configPath)
+			fmt.Println("📁 Default-Config erstellt unter:", configPath)
 		}
 		return
 	}
 
-	// Config laden
 	file, err := os.Open(configPath)
 	if err != nil {
 		fmt.Println("⚠️  Fehler beim Öffnen von config.json:", err)
@@ -49,7 +47,6 @@ func LoadConfig() {
 func getConfigPath() string {
 	configDir, err := os.UserConfigDir()
 	if err != nil {
-		// fallback: HOME/.config/pomo/
 		home, _ := os.UserHomeDir()
 		configDir = filepath.Join(home, ".config")
 	}

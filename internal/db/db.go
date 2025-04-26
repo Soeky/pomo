@@ -1,4 +1,4 @@
-package main
+package db
 
 import (
 	"database/sql"
@@ -11,18 +11,18 @@ import (
 	_ "modernc.org/sqlite" // SQLite driver
 )
 
-var db *sql.DB
+var DB *sql.DB
 
 func InitDB() {
 	dbPath := getDBPath()
 
 	var err error
-	db, err = sql.Open("sqlite", dbPath)
+	DB, err = sql.Open("sqlite", dbPath)
 	if err != nil {
 		log.Fatal("DB open error:", err)
 	}
 
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
         CREATE TABLE IF NOT EXISTS sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT NOT NULL CHECK(type IN ('focus', 'break')),
@@ -45,17 +45,14 @@ func getDBPath() string {
 		return "pomo.db"
 	}
 
-	// Zielpfad: ~/.local/share/pomo/pomo.db
 	pomoDir := filepath.Join(homeDir, ".local", "share", "pomo")
-
 	err = os.MkdirAll(pomoDir, 0755)
 	if err != nil {
 		log.Printf("❌ Konnte %s nicht erstellen: %v\nSpeichere pomo.db im aktuellen Ordner.", pomoDir, err)
 		return "pomo.db"
 	}
 
-	dbPath := filepath.Join(pomoDir, "pomo.db")
-	return dbPath
+	return filepath.Join(pomoDir, "pomo.db")
 }
 
 type Session struct {
@@ -68,7 +65,7 @@ type Session struct {
 }
 
 func InsertSession(sType, topic string, duration time.Duration) (int64, error) {
-	res, err := db.Exec(`
+	res, err := DB.Exec(`
         INSERT INTO sessions (type, topic, start_time, duration)
         VALUES (?, ?, ?, ?)`, sType, topic, time.Now(), int(duration.Seconds()))
 	if err != nil {
@@ -78,7 +75,7 @@ func InsertSession(sType, topic string, duration time.Duration) (int64, error) {
 }
 
 func StopCurrentSession() error {
-	row := db.QueryRow(`SELECT id, start_time FROM sessions WHERE end_time IS NULL ORDER BY start_time DESC LIMIT 1`)
+	row := DB.QueryRow(`SELECT id, start_time FROM sessions WHERE end_time IS NULL ORDER BY start_time DESC LIMIT 1`)
 
 	var id int
 	var startTime time.Time
@@ -93,7 +90,7 @@ func StopCurrentSession() error {
 	endTime := time.Now()
 	duration := int(endTime.Sub(startTime).Seconds())
 
-	_, err = db.Exec(`
+	_, err = DB.Exec(`
         UPDATE sessions
         SET end_time = ?, duration = ?
         WHERE id = ?
@@ -103,7 +100,7 @@ func StopCurrentSession() error {
 }
 
 func GetCurrentSession() (*Session, error) {
-	row := db.QueryRow(`
+	row := DB.QueryRow(`
         SELECT id, type, topic, start_time, duration
         FROM sessions
         WHERE end_time IS NULL
