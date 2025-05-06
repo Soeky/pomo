@@ -3,6 +3,7 @@ pomo
 *.exe
 *.out
 *.test
+pomo*
 
 # IDE / Editor
 .vscode/
