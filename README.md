@@ -104,18 +104,4 @@ Example Waybar module:
 },
 ```
 
-## Integration into Swiftbar (on Mac)
-
-In my [dot](https://github.com/Soeky/dot) (dotfiles) repository, I integrate pomo into Waybar.
-
-Example Waybar module:
-
-```json
-"custom/pomodoro": {
-  "exec": "/home/seymen/repos/github.com/Soeky/dotfiles/scripts/pomoS",
-  "return-type": "text",
-  "interval": 1
-},
-```
-
 This way you can see your current session directly in your status bar.
