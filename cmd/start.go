@@ -6,8 +6,8 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start [Dauer] [Thema]",
-	Short: "Startet eine Fokus-Session",
+	Use:   "start [duration (optional)] [topic]",
+	Short: "starts a work session",
 	Args:  cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		session.StartFocus(args)

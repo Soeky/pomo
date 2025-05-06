@@ -21,16 +21,16 @@ func LoadConfig() {
 		AppConfig = Config{DefaultFocus: 25, DefaultBreak: 5}
 		err := saveDefaultConfig(configPath)
 		if err != nil {
-			fmt.Println("⚠️  Konnte Default-Config nicht schreiben:", err)
+			fmt.Println("⚠️  default config couldn't be written to:", err)
 		} else {
-			fmt.Println("📁 Default-Config erstellt unter:", configPath)
+			fmt.Println("📁 default config created at:", configPath)
 		}
 		return
 	}
 
 	file, err := os.Open(configPath)
 	if err != nil {
-		fmt.Println("⚠️  Fehler beim Öffnen von config.json:", err)
+		fmt.Println("⚠️  error opening config.json:", err)
 		AppConfig = Config{DefaultFocus: 25, DefaultBreak: 5}
 		return
 	}
@@ -39,7 +39,7 @@ func LoadConfig() {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&AppConfig)
 	if err != nil {
-		fmt.Println("⚠️  Fehler beim Parsen von config.json:", err)
+		fmt.Println("⚠️  error parsing config.json:", err)
 		AppConfig = Config{DefaultFocus: 25, DefaultBreak: 5}
 	}
 }

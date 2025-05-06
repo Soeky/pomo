@@ -90,15 +90,15 @@ func GetTimeRange(view string) (time.Time, time.Time) {
 func FormatRangeName(view string) string {
 	switch view {
 	case "day":
-		return "Heute"
+		return "Today"
 	case "week":
-		return "Diese Woche"
+		return "This Week"
 	case "month":
-		return "Diesen Monat"
+		return "This Month"
 	case "year":
-		return "Dieses Jahr"
+		return "This Year"
 	case "all":
-		return "Alle Zeit"
+		return "All Time"
 	default:
 		return view
 	}

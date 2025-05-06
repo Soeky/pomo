@@ -7,7 +7,7 @@ import (
 
 var statusCmd = &cobra.Command{
 	Use:   "status",
-	Short: "Zeigt die aktuelle Session an",
+	Short: "prints the current status of the session",
 	Run: func(cmd *cobra.Command, args []string) {
 		status.ShowStatus()
 	},

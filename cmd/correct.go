@@ -6,8 +6,8 @@ import (
 )
 
 var correctCmd = &cobra.Command{
-	Use:   "correct [start|break] [Zeit zurück] [Thema]",
-	Short: "Korrigiert den Start einer Session rückwirkend",
+	Use:   "correct [start|break] [time into the past] [topic]",
+	Short: "corrects the start of a session back in time",
 	Args:  cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		session.HandleCorrectCommand(args)

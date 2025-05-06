@@ -15,7 +15,7 @@ func HandleCorrectCommand(args []string) {
 
 	backDuration, err := parse.ParseDurationFromArg(durationStr)
 	if err != nil {
-		fmt.Println("❌ Ungültiges Zeitformat:", err)
+		fmt.Println("❌ invalid time format:", err)
 		return
 	}
 
@@ -26,9 +26,9 @@ func HandleCorrectCommand(args []string) {
 
 	err = CorrectSession(sessionType, backDuration, topic)
 	if err != nil {
-		fmt.Println("❌ Fehler beim Korrigieren:", err)
+		fmt.Println("❌ there was an error while correcting:", err)
 	} else {
-		fmt.Println("✅ Session korrigiert!")
+		fmt.Println("✅ session has been corrected!")
 	}
 }
 
@@ -49,7 +49,7 @@ func CorrectSession(sessionType string, backDuration time.Duration, topic string
 		sType = "break"
 		baseDuration = time.Duration(config.AppConfig.DefaultBreak) * time.Minute
 	} else {
-		return fmt.Errorf("Unbekannter Session-Typ: %s", sessionType)
+		return fmt.Errorf("invalid session type: %s", sessionType)
 	}
 
 	// WICHTIG: neue Dauer = baseDuration + backDuration

@@ -6,8 +6,8 @@ import (
 )
 
 var statCmd = &cobra.Command{
-	Use:   "stat [Zeitraum]",
-	Short: "Zeigt Fokus- und Pausenstatistiken",
+	Use:   "stat [timeframe]",
+	Short: "prints work and break stats",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		stats.ShowStats(args)

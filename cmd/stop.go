@@ -7,7 +7,7 @@ import (
 
 var stopCmd = &cobra.Command{
 	Use:   "stop",
-	Short: "Stoppt die aktuelle Session",
+	Short: "stops the current session",
 	Run: func(cmd *cobra.Command, args []string) {
 		session.StopSession()
 	},

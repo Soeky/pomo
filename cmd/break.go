@@ -6,8 +6,8 @@ import (
 )
 
 var breakCmd = &cobra.Command{
-	Use:   "break [Dauer]",
-	Short: "Startet eine Pausensession",
+	Use:   "break [duration]",
+	Short: "starts a break session",
 	Args:  cobra.MaximumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		session.StartBreak(args)

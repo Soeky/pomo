@@ -41,14 +41,14 @@ func InitDB() {
 func getDBPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Println("❌ Fehler beim Ermitteln des HOME-Verzeichnisses. Speichere pomo.db im aktuellen Ordner.")
+		log.Println("❌ error finding home directory. Saving pomo.db in current working directory.")
 		return "pomo.db"
 	}
 
 	pomoDir := filepath.Join(homeDir, ".local", "share", "pomo")
 	err = os.MkdirAll(pomoDir, 0755)
 	if err != nil {
-		log.Printf("❌ Konnte %s nicht erstellen: %v\nSpeichere pomo.db im aktuellen Ordner.", pomoDir, err)
+		log.Printf("❌ could not create %s : %v\nsaving pomo.db in current working directory.", pomoDir, err)
 		return "pomo.db"
 	}
 
@@ -82,7 +82,7 @@ func StopCurrentSession() error {
 
 	err := row.Scan(&id, &startTime)
 	if err == sql.ErrNoRows {
-		return fmt.Errorf("Keine laufende Session gefunden")
+		return fmt.Errorf("could not find running session")
 	} else if err != nil {
 		return err
 	}

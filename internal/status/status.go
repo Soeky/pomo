@@ -11,12 +11,12 @@ import (
 func ShowStatus() {
 	currentSession, err := db.GetCurrentSession()
 	if err != nil {
-		fmt.Println("Fehler beim Abrufen der Session:", err)
+		fmt.Println("error finding session:", err)
 		return
 	}
 
 	if currentSession == nil {
-		fmt.Println("📭 Keine aktive Session.")
+		fmt.Println("📭 no active session.")
 		return
 	}
 

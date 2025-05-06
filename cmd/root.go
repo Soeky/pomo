@@ -9,8 +9,8 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "pomo",
-	Short: "🍅 Minimalistischer Pomodoro Timer",
-	Long:  "Pomo ist ein CLI-Tool für Fokus- und Pausensessions inklusive Statistiken.",
+	Short: "🍅 minimalistic pomodoro timer",
+	Long:  "Pomo is a cli tool for work and break sessions with statistics.",
 }
 
 func Execute() {

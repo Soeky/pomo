@@ -12,7 +12,7 @@ var timePattern = regexp.MustCompile(`(?i)(\d+)([smh])`)
 func ParseDurationFromArg(arg string) (time.Duration, error) {
 	matches := timePattern.FindAllStringSubmatch(arg, -1)
 	if matches == nil {
-		return 0, fmt.Errorf("Ungültiges Zeitformat: %s", arg)
+		return 0, fmt.Errorf("invalid time format: %s", arg)
 	}
 
 	var total time.Duration

@@ -32,11 +32,11 @@ func StartFocus(args []string) {
 
 	id, err := db.InsertSession("focus", topic, duration)
 	if err != nil {
-		fmt.Println("❌ Fehler beim Starten der Fokus-Session:", err)
+		fmt.Println("❌ error starting the work session:", err)
 		return
 	}
 
-	fmt.Printf("🍅 Fokus gestartet: \"%s\" für %s (ID %d)\n", topic, FormatShortDuration(duration), id)
+	fmt.Printf("🍅 work session started: \"%s\" for %s (ID %d)\n", topic, FormatShortDuration(duration), id)
 }
 
 func StartBreak(args []string) {
@@ -57,11 +57,11 @@ func StartBreak(args []string) {
 
 	id, err := db.InsertSession("break", "", duration)
 	if err != nil {
-		fmt.Println("❌ Fehler beim Starten der Pause:", err)
+		fmt.Println("❌ error starting break session:", err)
 		return
 	}
 
-	fmt.Printf("💤 Pause gestartet für %s (ID %d)\n", FormatShortDuration(duration), id)
+	fmt.Printf("💤 break started for %s (ID %d)\n", FormatShortDuration(duration), id)
 }
 
 func FormatShortDuration(d time.Duration) string {

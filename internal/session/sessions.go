@@ -9,15 +9,15 @@ import (
 func StopSession() {
 	err := db.StopCurrentSession()
 	if err != nil {
-		fmt.Println("❌ Fehler beim Stoppen:", err)
+		fmt.Println("❌ error while stopping:", err)
 		return
 	}
-	fmt.Println("🛑 Session gestoppt")
+	fmt.Println("🛑 session has been stopped")
 }
 
 func StopIfRunning() {
 	err := db.StopCurrentSession()
 	if err == nil {
-		fmt.Println("vorherige Session gestoppt")
+		fmt.Println("previous session has been stopped")
 	}
 }
