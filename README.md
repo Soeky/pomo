@@ -7,7 +7,7 @@ Ideal for users who want to manage focus sessions directly via the terminal or i
 ## Features
 
 - Start focus sessions (`start`) and break sessions (`break`)
-- Real-time status display (`status`)
+- Status display (`status`)
 - Stop the current session (`stop`)
 - Show statistics (`stat`) for day, week, month, or year
 - Session correction (`correct`) to retroactively start a session
