@@ -8,6 +8,7 @@ Ideal for users who want to manage focus sessions directly via the terminal or i
 
 - Start focus sessions (`start`) and break sessions (`break`)
 - Status display (`status`)
+- Set config data (`set`)
 - Stop the current session (`stop`)
 - Show statistics (`stat`) for day, week, month, or year
 - Session correction (`correct`) to retroactively start a session
@@ -81,7 +82,7 @@ pomo status
 Display session statistics:
 
 ```bash
-pomo stat [day|week|month|year|all]
+pomo stat [day|week|month|year|all|sem]
 ```
 
 Correct a session if you forgot to start:
@@ -89,6 +90,13 @@ Correct a session if you forgot to start:
 ```bash
 pomo correct start 15m ProjectX
 ```
+Starts the session ProjectX 15 minutes in the past and stops the previous session 15m before now.
+
+Set config data:
+```bash
+pomo set <default_focus|default_break|semester_start> <default time in m|semester in YYYY-MM-DD>
+```
+
 
 ## Integration into Waybar
 

@@ -3,8 +3,10 @@ package stats
 import (
 	"database/sql"
 	"fmt"
-	"github.com/Soeky/pomo/internal/db"
 	"time"
+
+	"github.com/Soeky/pomo/internal/config"
+	"github.com/Soeky/pomo/internal/db"
 )
 
 type FocusStat struct {
@@ -16,6 +18,12 @@ type FocusStat struct {
 type BreakStat struct {
 	Count        int
 	TotalMinutes int
+}
+
+type Session struct {
+	Type     string
+	Duration int
+	Start    time.Time
 }
 
 func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
@@ -60,6 +68,46 @@ func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
 	return focusStats, breakStat, nil
 }
 
+func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
+	rows, err := db.DB.Query(`
+        SELECT type, duration, start_time
+        FROM sessions
+        WHERE start_time BETWEEN ? AND ?
+        ORDER BY start_time ASC
+    `, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var sessions []Session
+	for rows.Next() {
+		var s Session
+		var startTime time.Time
+		rows.Scan(&s.Type, &s.Duration, &startTime)
+		s.Start = startTime
+		sessions = append(sessions, s)
+	}
+
+	var blocks []Session
+	if len(sessions) == 0 {
+		return blocks, nil
+	}
+
+	curr := sessions[0]
+	for i := 1; i < len(sessions); i++ {
+		next := sessions[i]
+		if next.Type == curr.Type {
+			curr.Duration += next.Duration
+		} else {
+			blocks = append(blocks, curr)
+			curr = next
+		}
+	}
+	blocks = append(blocks, curr)
+	return blocks, nil
+}
+
 func GetTimeRange(view string) (time.Time, time.Time) {
 	now := time.Now()
 	var start time.Time
@@ -80,6 +128,12 @@ func GetTimeRange(view string) (time.Time, time.Time) {
 		start = time.Date(now.Year(), 1, 1, 0, 0, 0, 0, now.Location())
 	case "all":
 		start = time.Date(2000, 1, 1, 0, 0, 0, 0, now.Location())
+	case "sem":
+		t, err := time.Parse("2006-01-02", config.AppConfig.SemesterStart)
+		if err != nil || t.IsZero() {
+			t = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		}
+		start = t
 	default:
 		start = time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	}

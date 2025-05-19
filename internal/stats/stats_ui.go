@@ -18,6 +18,25 @@ func ShowStats(args []string) {
 		return
 	}
 
+	blocks, err := QuerySessionBlocks(start, end)
+	if err != nil {
+		fmt.Println("error while calculating average sessions:", err)
+		return
+	}
+
+	var focusBlockCount, focusBlockTotal int
+	var breakBlockCount, breakBlockTotal int
+	for _, b := range blocks {
+		mins := b.Duration / 60
+		if b.Type == "focus" {
+			focusBlockCount++
+			focusBlockTotal += mins
+		} else if b.Type == "break" {
+			breakBlockCount++
+			breakBlockTotal += mins
+		}
+	}
+
 	fmt.Printf("📅 %s\n\n", FormatRangeName(rangeStr))
 
 	fmt.Println("🍅 Work:")
@@ -28,8 +47,8 @@ func ShowStats(args []string) {
 		totalFocusDur += entry.TotalMinutes
 		totalFocusCount += entry.Count
 	}
-	if totalFocusCount > 0 {
-		avg := float64(totalFocusDur) / float64(totalFocusCount)
+	if focusBlockCount > 0 {
+		avg := float64(focusBlockTotal) / float64(focusBlockCount)
 		fmt.Printf("Ø Worktime: %.1f min\n", avg)
 	} else {
 		fmt.Println("No worktime.")
@@ -38,8 +57,10 @@ func ShowStats(args []string) {
 	fmt.Println("\n💤 Break:")
 	if breakStats.Count > 0 {
 		fmt.Printf("- %dx – %d min\n", breakStats.Count, breakStats.TotalMinutes)
-		avg := float64(breakStats.TotalMinutes) / float64(breakStats.Count)
-		fmt.Printf("Ø Breaktime: %.1f min\n", avg)
+		if breakBlockCount > 0 {
+			avg := float64(breakBlockTotal) / float64(breakBlockCount)
+			fmt.Printf("Ø Breaktime: %.1f min\n", avg)
+		}
 	} else {
 		fmt.Println("No breaks.")
 	}
