@@ -43,7 +43,7 @@ func ShowStats(args []string) {
 	totalFocusDur := 0
 	totalFocusCount := 0
 	for _, entry := range focusStats {
-		fmt.Printf("- %-10s %2dx – %2d min\n", entry.Topic, entry.Count, entry.TotalMinutes)
+		fmt.Printf("- %-10s %2dx – %s h\n", entry.Topic, entry.Count, FormatMinutesToHM(entry.TotalMinutes))
 		totalFocusDur += entry.TotalMinutes
 		totalFocusCount += entry.Count
 	}
@@ -56,7 +56,7 @@ func ShowStats(args []string) {
 
 	fmt.Println("\n💤 Break:")
 	if breakStats.Count > 0 {
-		fmt.Printf("- %dx – %d min\n", breakStats.Count, breakStats.TotalMinutes)
+		fmt.Printf("- %dx – %s h\n", breakStats.Count, FormatMinutesToHM(breakStats.TotalMinutes))
 		if breakBlockCount > 0 {
 			avg := float64(breakBlockTotal) / float64(breakBlockCount)
 			fmt.Printf("Ø Breaktime: %.1f min\n", avg)
