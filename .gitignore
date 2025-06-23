@@ -4,6 +4,7 @@ pomo
 *.out
 *.test
 pomo*
+main
 
 # IDE / Editor
 .vscode/
