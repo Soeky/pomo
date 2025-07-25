@@ -28,6 +28,7 @@ type item struct {
 	ID        int
 	Topic     string
 	StartTime time.Time
+	EndTime   time.Time
 	Duration  int // seconds
 }
 
@@ -147,11 +148,12 @@ func (m model) View() string {
 			if _, ok := m.selected[i]; ok {
 				checked = "x"
 			}
-			b.WriteString(fmt.Sprintf("%s [%s] %-12s %6s  %s\n",
+			b.WriteString(fmt.Sprintf("%s [%s] %-12s %6s  %s %s\n",
 				cursor, checked,
 				it.Topic,
 				formatDuration(it.Duration),
-				it.StartTime.Format("2006-01-02 15:04")))
+				it.StartTime.Format("2006-01-02 15:04"),
+				it.EndTime.Format("2006-01-02 15:04")))
 		}
 		return b.String()
 	case stepConfirm:
@@ -188,7 +190,7 @@ func formatDuration(sec int) string {
 // getRecentSessions fetches recent sessions from DB
 func getRecentSessions(limit int) ([]item, error) {
 	rows, err := db.DB.Query(`
-		SELECT id, topic, start_time, duration
+		SELECT id, topic, start_time, end_time, duration
 		FROM sessions
 		ORDER BY start_time DESC
 		LIMIT ?`, limit)
@@ -200,7 +202,7 @@ func getRecentSessions(limit int) ([]item, error) {
 	for rows.Next() {
 		var it item
 		var durationSec sql.NullInt64
-		err := rows.Scan(&it.ID, &it.Topic, &it.StartTime, &durationSec)
+		err := rows.Scan(&it.ID, &it.Topic, &it.StartTime, &it.EndTime, &durationSec)
 		if err != nil {
 			continue
 		}
