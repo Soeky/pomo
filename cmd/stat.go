@@ -6,16 +6,24 @@ import (
 )
 
 var statCmd = &cobra.Command{
-	Use:   "stat [day|week|month|year|sem]",
+	Use:   "stat [timeframe]",
 	Short: "prints work and break stats",
 	Long: `
-  prints some statistics like avg and sum of your work and break sessions aggregated by topic.
-  It is case sensitive, thus test and Test are two different topics. 
-  
-  To use pomo stat sem you have to set the semester start with pomo set or manually in the config file.
-  If you want to calculate other statistics, the database is located in ~/.local/share/pomo/pomo.db. (be careful there is no backup yet)
+	print stats of different timeframes:
+	without arg:
+		prints the stats of the current day
+	pomo stat day | pomo stat 2025-06-14:
+		prints the stats of the current day
+	pomo stat week | pomo stat 2025-06-10 2025-07-10:
+		prints the stats of the current week
+	pomo stat month | pomo stat 2025-06:
+		prints the stats of the current month
+	pomo stat year | pomo stat 2025:
+		prints the stats of the current year
+	pomo stat sem:
+		prints the stats of the current semester. Semester start can be set in the configs using pomo set
 	`,
-	Args: cobra.MaximumNArgs(1),
+	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		stats.ShowStats(args)
 	},

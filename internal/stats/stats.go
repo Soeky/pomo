@@ -142,17 +142,34 @@ func GetTimeRange(view string) (time.Time, time.Time) {
 }
 
 func FormatRangeName(view string) string {
+	now := time.Now()
+
 	switch view {
 	case "day":
-		return "Today"
+		return now.Format("2006-01-02")
 	case "week":
-		return "This Week"
+		weekday := int(now.Weekday())
+		var daysToMonday int
+		if weekday == 0 {
+			daysToMonday = 6
+		} else {
+			daysToMonday = weekday - 1
+		}
+
+		monday := now.AddDate(0, 0, -daysToMonday)
+		sunday := monday.AddDate(0, 0, 6)
+
+		return fmt.Sprintf("%s – %s", monday.Format("2006-01-02"), sunday.Format("2006-01-02"))
+
 	case "month":
-		return "This Month"
+		return now.Format("2006-01")
+
 	case "year":
-		return "This Year"
+		return now.Format("2006")
+
 	case "all":
 		return "All Time"
+
 	default:
 		return view
 	}
