@@ -39,6 +39,10 @@ func InitDB() {
 }
 
 func getDBPath() string {
+	return GetDBPath()
+}
+
+func GetDBPath() string {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		log.Println("❌ error finding home directory. Saving pomo.db in current working directory.")
