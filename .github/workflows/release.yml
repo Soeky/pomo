@@ -1,0 +1,147 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for tags
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Get latest version tag
+        id: get_version
+        run: |
+          # Get all tags matching semantic version pattern (v*.*.*)
+          # Sort them and get the latest one
+          LATEST_TAG=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" | sort -V | tail -n 1 || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            NEW_VERSION="v0.1.0"
+            echo "No existing version tags found. Starting with v0.1.0"
+          else
+            # Extract version number (remove 'v' prefix)
+            VERSION=${LATEST_TAG#v}
+            
+            # Split into major.minor.patch
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            
+            # Ensure we have valid numbers (handle edge cases)
+            MAJOR=${MAJOR:-0}
+            MINOR=${MINOR:-0}
+            PATCH=${PATCH:-0}
+            
+            # Increment patch version
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
+            echo "Latest tag: $LATEST_TAG"
+            echo "New version: $NEW_VERSION"
+          fi
+          
+          # Check if the new tag already exists (might have been created manually)
+          if git rev-parse "$NEW_VERSION" >/dev/null 2>&1; then
+            echo "Tag $NEW_VERSION already exists. Skipping release."
+            echo "skip_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip_release=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Skip release message
+        if: steps.get_version.outputs.skip_release == 'true'
+        run: |
+          echo "⚠️ Tag ${{ steps.get_version.outputs.tag }} already exists. Skipping release."
+          echo "If you want to create a new release, manually create a tag with a higher version number."
+
+      - name: Build Linux amd64
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o pomo-linux-amd64
+          chmod +x pomo-linux-amd64
+
+      - name: Build Linux arm64
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          GOOS=linux GOARCH=arm64 go build -o pomo-linux-arm64
+          chmod +x pomo-linux-arm64
+
+      - name: Build macOS amd64
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o pomo-darwin-amd64
+          chmod +x pomo-darwin-amd64
+
+      - name: Build macOS arm64
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          GOOS=darwin GOARCH=arm64 go build -o pomo-darwin-arm64
+          chmod +x pomo-darwin-arm64
+
+      - name: Build Windows amd64
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o pomo-windows-amd64.exe
+
+      - name: Create checksums
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          sha256sum pomo-* > checksums.txt
+
+      - name: Create Git tag
+        if: steps.get_version.outputs.skip_release != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ steps.get_version.outputs.tag }}" -m "Release ${{ steps.get_version.outputs.tag }}"
+          git push origin "${{ steps.get_version.outputs.tag }}"
+
+      - name: Create Release
+        if: steps.get_version.outputs.skip_release != 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: Release ${{ steps.get_version.outputs.tag }}
+          body: |
+            ## Changes
+            
+            Automated release from commit: ${{ github.sha }}
+            
+            ## Binaries
+            
+            - `pomo-linux-amd64` - Linux (64-bit)
+            - `pomo-linux-arm64` - Linux ARM64
+            - `pomo-darwin-amd64` - macOS (Intel)
+            - `pomo-darwin-arm64` - macOS (Apple Silicon)
+            - `pomo-windows-amd64.exe` - Windows (64-bit)
+            
+            ## Checksums
+            
+            See `checksums.txt` for SHA256 checksums.
+          files: |
+            pomo-linux-amd64
+            pomo-linux-arm64
+            pomo-darwin-amd64
+            pomo-darwin-arm64
+            pomo-windows-amd64.exe
+            checksums.txt
+          draft: false
+          prerelease: false
+
