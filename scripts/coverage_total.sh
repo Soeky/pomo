@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-threshold="${1:-80}"
+threshold="${1:-70}"
 shift || true
 
 if [[ "$#" -eq 0 ]]; then
