@@ -1,48 +1,46 @@
 {{define "sql.html"}}
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>pomo sql</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <style>
-    body{margin:0;font-family:"IBM Plex Sans",sans-serif;background:#f8faf9;color:#102a43}
-    header{padding:16px 24px;background:white;border-bottom:1px solid #d9e2ec}
-    nav a{margin-right:16px;color:#52606d;text-decoration:none}.active{color:#007f5f;font-weight:600}
-    main{max-width:1200px;margin:0 auto;padding:24px}
-    textarea{width:100%;height:180px;padding:10px;border:1px solid #bcccdc;border-radius:8px;font-family:monospace}
-    button{margin-top:10px;padding:8px 12px;border:none;border-radius:8px;background:#007f5f;color:#fff;cursor:pointer}
-    .tables button{margin-right:8px;background:#334e68}
-    table{border-collapse:collapse;width:100%;background:#fff;margin-top:16px}
-    th,td{padding:8px;border:1px solid #d9e2ec;text-align:left}
-  </style>
-</head>
+{{template "head.html" .}}
 <body>
-<header>
-  <nav>
-    <a href="/">Dashboard</a>
-    <a href="/calendar">Calendar</a>
-    <a href="/sessions">Sessions</a>
-    <a class="active" href="/sql">SQL</a>
-  </nav>
-</header>
-<main>
-  <h1>SQL Workspace</h1>
-  <form hx-post="/sql/query" hx-target="#sql-result" hx-swap="innerHTML">
-    <div class="tables">
-      {{range .Tables}}
-        <button type="button" onclick="insertTable('{{.}}')">{{.}}</button>
-      {{end}}
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
     </div>
-    <textarea id="sql" name="query" placeholder="SELECT * FROM sessions LIMIT 20;"></textarea>
-    <label><input type="checkbox" name="write_mode" value="1"> Enable write mode</label>
-    <button type="submit">Run Query</button>
-  </form>
-  <div id="sql-result"></div>
-</main>
+
+    <div class="page-header">
+      <h1 class="page-title">SQL Workspace</h1>
+      <span class="badge">Read-only by default</span>
+    </div>
+
+    <section class="panel">
+      <form hx-post="/sql/query" hx-target="#sql-result" hx-swap="innerHTML">
+        <div class="toolbar">
+          {{range .Tables}}
+          <button class="btn btn-secondary" type="button" onclick="insertTable('{{.}}')">{{.}}</button>
+          {{end}}
+        </div>
+
+        <textarea id="sql" name="query" placeholder="SELECT * FROM sessions LIMIT 20;"></textarea>
+
+        <label>
+          <input type="checkbox" name="write_mode" value="1">
+          Enable write mode
+        </label>
+
+        <button class="btn btn-primary" type="submit">Run Query</button>
+      </form>
+
+      <div id="sql-result"></div>
+    </section>
+  </main>
+</div>
 <script>
-function insertTable(name){
+function insertTable(name) {
   const t = document.getElementById('sql');
   t.value = `SELECT * FROM ${name} LIMIT 20;`;
 }

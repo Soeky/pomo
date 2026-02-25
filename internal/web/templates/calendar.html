@@ -1,92 +1,119 @@
 {{define "calendar.html"}}
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>pomo calendar</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.17/index.global.min.js"></script>
-  <style>
-    body { margin:0; font-family:"IBM Plex Sans", sans-serif; background:#f4f6f8; }
-    header { padding: 16px 24px; border-bottom:1px solid #d9e2ec; background:white; }
-    nav a { margin-right:16px; color:#52606d; text-decoration:none; }
-    nav a.active { color:#007f5f; font-weight:600; }
-    main { max-width:1200px; margin:0 auto; padding:24px; display:grid; grid-template-columns: 1fr 320px; gap:20px; }
-    #calendar { background:white; border:1px solid #d9e2ec; border-radius:12px; padding:16px; }
-    .panel { background:white; border:1px solid #d9e2ec; border-radius:12px; padding:16px; }
-    input, textarea, button { width:100%; margin-top:8px; padding:8px; border:1px solid #bcccdc; border-radius:8px; }
-    button { background:#007f5f; color:white; border:none; cursor:pointer; }
-    @media (max-width: 900px){ main { grid-template-columns: 1fr; } }
-  </style>
-</head>
+{{template "head.html" .}}
 <body>
-<header>
-  <nav>
-    <a href="/">Dashboard</a>
-    <a class="active" href="/calendar">Calendar</a>
-    <a href="/sessions">Sessions</a>
-    <a href="/sql">SQL</a>
-  </nav>
-</header>
-<main>
-  <section id="calendar"></section>
-  <aside class="panel">
-    <h2>Create Planned Event</h2>
-    <form id="new-event" hx-post="/calendar/events" hx-swap="none">
-      <label>Title</label>
-      <input name="title" required>
-      <label>Description</label>
-      <textarea name="description"></textarea>
-      <label>Start</label>
-      <input type="datetime-local" name="start_time" required>
-      <label>End</label>
-      <input type="datetime-local" name="end_time" required>
-      <button type="submit">Create</button>
-    </form>
-    <p id="event-status"></p>
-  </aside>
-</main>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <h1 class="page-title">Calendar</h1>
+      <span class="badge">Balanced Week View</span>
+    </div>
+
+    <div class="calendar-layout">
+      <section id="calendar"></section>
+      <aside class="panel">
+        <h2>Create Planned Event</h2>
+        <form id="new-event" hx-post="/calendar/events" hx-swap="none">
+          <label for="title">Title</label>
+          <input id="title" name="title" required>
+
+          <label for="description">Description</label>
+          <textarea id="description" name="description"></textarea>
+
+          <label for="start_time">Start</label>
+          <input id="start_time" type="datetime-local" name="start_time" required>
+
+          <label for="end_time">End</label>
+          <input id="end_time" type="datetime-local" name="end_time" required>
+
+          <button class="btn btn-primary" type="submit">Create Event</button>
+        </form>
+        <p id="event-status" class="muted"></p>
+      </aside>
+    </div>
+  </main>
+</div>
+
 <script>
-const cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
-  initialView: 'timeGridWeek',
-  editable: true,
-  selectable: true,
-  events: '/calendar/events',
-  select: async (info) => {
-    const title = prompt('Planned task title');
-    if (!title) return;
-    const body = new URLSearchParams({title, start_time: info.startStr, end_time: info.endStr});
-    const res = await fetch('/calendar/events', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-    if (res.ok) cal.refetchEvents();
-  },
-  eventDrop: async (info) => {
-    await updateEvent(info.event);
-  },
-  eventResize: async (info) => {
-    await updateEvent(info.event);
-  },
-  eventClick: async (info) => {
-    if (!confirm('Delete this event/session?')) return;
-    const res = await fetch('/calendar/events/' + info.event.id, {method: 'DELETE'});
-    if (res.ok) info.event.remove();
-  }
-});
-async function updateEvent(event) {
-  const body = new URLSearchParams({
-    start_time: event.start ? event.start.toISOString() : '',
-    end_time: event.end ? event.end.toISOString() : '',
-    title: event.title,
+(() => {
+  const cal = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'timeGridWeek',
+    editable: true,
+    selectable: true,
+    height: 'auto',
+    nowIndicator: true,
+    dayHeaderFormat: { weekday: 'short', month: 'numeric', day: 'numeric' },
+    events: '/calendar/events',
+    select: async (info) => {
+      const startInput = document.getElementById('start_time');
+      const endInput = document.getElementById('end_time');
+      startInput.value = info.startStr.slice(0, 16);
+      endInput.value = info.endStr.slice(0, 16);
+      document.getElementById('title').focus();
+    },
+    eventDrop: async (info) => {
+      await updateEvent(info.event);
+    },
+    eventResize: async (info) => {
+      await updateEvent(info.event);
+    },
+    eventClick: async (info) => {
+      if (!confirm('Delete this event or session?')) return;
+      const res = await fetch('/calendar/events/' + info.event.id, { method: 'DELETE' });
+      if (res.ok) {
+        info.event.remove();
+        showStatus('Event deleted.');
+        return;
+      }
+      showStatus('Delete failed.', true);
+    }
   });
-  const res = await fetch('/calendar/events/' + event.id, {method:'PATCH', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-  if (!res.ok) {
-    alert('Update failed');
-    cal.refetchEvents();
+
+  async function updateEvent(event) {
+    const body = new URLSearchParams({
+      start_time: event.start ? event.start.toISOString() : '',
+      end_time: event.end ? event.end.toISOString() : '',
+      title: event.title
+    });
+    const res = await fetch('/calendar/events/' + event.id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) {
+      showStatus('Update failed.', true);
+      cal.refetchEvents();
+      return;
+    }
+    showStatus('Event updated.');
   }
-}
-cal.render();
-document.getElementById('new-event').addEventListener('htmx:afterRequest', () => cal.refetchEvents());
+
+  function showStatus(msg, isError) {
+    const node = document.getElementById('event-status');
+    node.textContent = msg;
+    node.className = isError ? 'status-error' : 'muted';
+  }
+
+  cal.render();
+
+  document.getElementById('new-event').addEventListener('htmx:afterRequest', (evt) => {
+    if (evt.detail.successful) {
+      cal.refetchEvents();
+      showStatus('Event created.');
+      evt.target.reset();
+      return;
+    }
+    showStatus('Create failed.', true);
+  });
+})();
 </script>
 </body>
 </html>

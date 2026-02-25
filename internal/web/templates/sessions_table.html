@@ -1,27 +1,35 @@
 {{define "sessions-table.html"}}
-<table>
-  <thead>
-    <tr>
-      <th>ID</th><th>Type</th><th>Topic</th><th>Start</th><th>End</th><th>Duration</th><th>Actions</th>
-    </tr>
-  </thead>
-  <tbody>
-    {{range .Rows}}
+<div class="table-shell">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Type</th>
+        <th>Topic</th>
+        <th>Start</th>
+        <th>End</th>
+        <th>Duration</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{range .Rows}}
       <tr>
         <td>{{.ID}}</td>
-        <td>{{.Type}}</td>
+        <td><span class="badge">{{.Type}}</span></td>
         <td>{{.Topic}}</td>
         <td>{{.StartTime.Format "2006-01-02 15:04"}}</td>
         <td>{{if .EndTime}}{{.EndTime.Format "2006-01-02 15:04"}}{{else}}running{{end}}</td>
         <td>{{.DurationSec}}s</td>
         <td>
-          <button hx-delete="/sessions/{{.ID}}" hx-confirm="Delete session {{.ID}}?" hx-target="closest tr" hx-swap="outerHTML">Delete</button>
+          <button class="btn btn-danger" hx-delete="/sessions/{{.ID}}" hx-confirm="Delete session {{.ID}}?" hx-target="closest tr" hx-swap="outerHTML">Delete</button>
         </td>
       </tr>
-    {{else}}
-      <tr><td colspan="7">No sessions found.</td></tr>
-    {{end}}
-  </tbody>
-</table>
-<p>Page {{.Page}} • Rows {{len .Rows}} / {{.TotalRows}}</p>
+      {{else}}
+      <tr><td colspan="7" class="muted">No sessions found.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+<p class="meta-row">Page {{.Page}} | Rows {{len .Rows}} / {{.TotalRows}}</p>
 {{end}}

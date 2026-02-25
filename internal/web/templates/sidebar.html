@@ -1,0 +1,36 @@
+{{define "sidebar.html"}}
+<aside class="sidebar" aria-label="Primary navigation">
+  <div class="brand">pomo workspace</div>
+  <nav>
+    <a class="nav-link {{if eq .ActivePage "dashboard"}}active{{end}}" href="/">Dashboard</a>
+    <a class="nav-link {{if eq .ActivePage "calendar"}}active{{end}}" href="/calendar">Calendar</a>
+    <a class="nav-link {{if eq .ActivePage "sessions"}}active{{end}}" href="/sessions">Sessions</a>
+    <a class="nav-link {{if eq .ActivePage "sql"}}active{{end}}" href="/sql">SQL Workspace</a>
+  </nav>
+  <div class="theme-box">
+    <button id="theme-toggle" type="button" class="btn btn-secondary theme-toggle">Switch to Light</button>
+  </div>
+</aside>
+<script>
+(() => {
+  const root = document.documentElement;
+  const button = document.getElementById('theme-toggle');
+  if (!button) return;
+
+  function applyLabel() {
+    const isDark = root.getAttribute('data-theme') !== 'light';
+    button.textContent = isDark ? 'Switch to Light' : 'Switch to Dark';
+  }
+
+  button.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('pomo-theme', next);
+    applyLabel();
+  });
+
+  applyLabel();
+})();
+</script>
+{{end}}

@@ -24,7 +24,12 @@ func (s *Server) sqlPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "sql.html", map[string]any{"Tables": tables}); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "sql.html", map[string]any{
+		"Tables":                tables,
+		"ActivePage":            "sql",
+		"PageTitle":             "SQL Workspace",
+		"IncludeCalendarAssets": false,
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

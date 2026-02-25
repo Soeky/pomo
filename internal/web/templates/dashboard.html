@@ -1,51 +1,32 @@
 {{define "dashboard.html"}}
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>pomo dashboard</title>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
-  <style>
-    :root { --bg:#f6f7f5; --card:#ffffff; --text:#1f2933; --muted:#52606d; --accent:#007f5f; --line:#d9e2ec; }
-    * { box-sizing: border-box; }
-    body { margin:0; font-family: "IBM Plex Sans", sans-serif; background: linear-gradient(180deg,#f9faf8,#eef3ee); color: var(--text); }
-    header { padding: 16px 24px; border-bottom: 1px solid var(--line); background: #fff; position: sticky; top:0; }
-    nav a { margin-right: 16px; color: var(--muted); text-decoration: none; }
-    nav a.active { color: var(--accent); font-weight: 600; }
-    main { padding: 24px; max-width: 1200px; margin: 0 auto; }
-    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
-    .card { background: var(--card); border:1px solid var(--line); border-radius: 14px; padding: 16px; }
-    .muted { color: var(--muted); }
-    .top { display:flex; justify-content: space-between; align-items:center; margin-bottom: 12px; }
-    button { border:1px solid var(--line); background:#fff; padding: 8px 12px; border-radius:8px; cursor:pointer; }
-  </style>
-</head>
+{{template "head.html" .}}
 <body>
-<header>
-  <nav>
-    <a class="active" href="/">Dashboard</a>
-    <a href="/calendar">Calendar</a>
-    <a href="/sessions">Sessions</a>
-    <a href="/sql">SQL</a>
-  </nav>
-</header>
-<main>
-  <div class="top">
-    <h1>Dashboard</h1>
-    <div>
-      <button hx-get="/" hx-target="body" hx-swap="outerHTML">Refresh</button>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
     </div>
-  </div>
-  <div class="cards">
-    {{range .Modules}}
+
+    <div class="page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <button class="btn btn-secondary" hx-get="/" hx-target="body" hx-swap="outerHTML">Refresh</button>
+    </div>
+
+    <div class="cards-grid">
+      {{range .Modules}}
       <section class="card" id="module-{{.ID}}">
         <h2>{{.Title}}</h2>
         {{template "dashboard-module.html" .}}
       </section>
-    {{end}}
-  </div>
-</main>
+      {{end}}
+    </div>
+  </main>
+</div>
 </body>
 </html>
 {{end}}

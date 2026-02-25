@@ -13,7 +13,11 @@ func (s *Server) sessionsPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "sessions.html", nil); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "sessions.html", map[string]any{
+		"ActivePage":            "sessions",
+		"PageTitle":             "Sessions",
+		"IncludeCalendarAssets": false,
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
