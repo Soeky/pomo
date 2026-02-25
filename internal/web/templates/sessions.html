@@ -1,0 +1,43 @@
+{{define "sessions.html"}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>pomo sessions</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body{margin:0;font-family:"IBM Plex Sans",sans-serif;background:#f7fafc;color:#102a43}
+    header{padding:16px 24px;background:#fff;border-bottom:1px solid #d9e2ec}
+    nav a{margin-right:16px;color:#52606d;text-decoration:none}.active{color:#007f5f;font-weight:600}
+    main{max-width:1200px;margin:0 auto;padding:24px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+    input,select,button{padding:8px;border:1px solid #bcccdc;border-radius:8px}
+    button{background:#007f5f;color:white;border:none;cursor:pointer}
+    table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #d9e2ec;border-radius:12px;overflow:hidden}
+    th,td{padding:10px;border-bottom:1px solid #e4e7eb;text-align:left}
+  </style>
+</head>
+<body>
+<header>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/calendar">Calendar</a>
+    <a class="active" href="/sessions">Sessions</a>
+    <a href="/sql">SQL</a>
+  </nav>
+</header>
+<main>
+  <h1>Session Explorer</h1>
+  <form class="toolbar" hx-get="/sessions/table" hx-target="#session-table" hx-swap="innerHTML">
+    <input name="q" placeholder="topic filter">
+    <select name="type"><option value="">all types</option><option>focus</option><option>break</option></select>
+    <select name="sort"><option value="start_time">start_time</option><option value="duration">duration</option><option value="topic">topic</option></select>
+    <select name="order"><option value="desc">desc</option><option value="asc">asc</option></select>
+    <button type="submit">Apply</button>
+  </form>
+  <div id="session-table" hx-get="/sessions/table" hx-trigger="load" hx-swap="innerHTML"></div>
+</main>
+</body>
+</html>
+{{end}}

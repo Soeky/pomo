@@ -22,19 +22,8 @@ func InitDB() {
 		log.Fatal("DB open error:", err)
 	}
 
-	_, err = DB.Exec(`
-        CREATE TABLE IF NOT EXISTS sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            type TEXT NOT NULL CHECK(type IN ('focus', 'break')),
-            topic TEXT,
-            start_time DATETIME NOT NULL,
-            end_time DATETIME,
-            duration INTEGER
-        );
-        CREATE INDEX IF NOT EXISTS idx_start_time ON sessions(start_time);
-    `)
-	if err != nil {
-		log.Fatal("DB init error:", err)
+	if err := runMigrations(DB); err != nil {
+		log.Fatal("DB migration error:", err)
 	}
 }
 
@@ -147,4 +136,157 @@ func GetCurrentSession() (*Session, error) {
 
 	s.Duration = durationSec
 	return &s, nil
+}
+
+func runMigrations(db *sql.DB) error {
+	if _, err := db.Exec(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            applied_at DATETIME NOT NULL
+        );
+    `); err != nil {
+		return err
+	}
+
+	migrations := []struct {
+		name string
+		sql  string
+	}{
+		{
+			name: "001_base_sessions",
+			sql: `
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    type TEXT NOT NULL CHECK(type IN ('focus', 'break')),
+                    topic TEXT,
+                    start_time DATETIME NOT NULL,
+                    end_time DATETIME,
+                    duration INTEGER
+                );
+                CREATE INDEX IF NOT EXISTS idx_start_time ON sessions(start_time);
+            `,
+		},
+		{
+			name: "002_sessions_metadata",
+			sql: `
+                ALTER TABLE sessions ADD COLUMN planned_event_id INTEGER;
+                ALTER TABLE sessions ADD COLUMN created_at DATETIME;
+                ALTER TABLE sessions ADD COLUMN updated_at DATETIME;
+            `,
+		},
+		{
+			name: "003_planned_events",
+			sql: `
+                CREATE TABLE IF NOT EXISTS planned_events (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT NOT NULL,
+                    description TEXT,
+                    start_time DATETIME NOT NULL,
+                    end_time DATETIME NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'planned' CHECK(status IN ('planned','done','canceled')),
+                    source TEXT NOT NULL DEFAULT 'manual' CHECK(source IN ('manual','scheduler')),
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_planned_events_time ON planned_events(start_time, end_time);
+            `,
+		},
+		{
+			name: "004_audit_log",
+			sql: `
+                CREATE TABLE IF NOT EXISTS audit_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    entity_type TEXT NOT NULL,
+                    entity_id INTEGER NOT NULL,
+                    action TEXT NOT NULL,
+                    before_json TEXT,
+                    after_json TEXT,
+                    changed_at DATETIME NOT NULL,
+                    origin TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_log(entity_type, entity_id);
+            `,
+		},
+		{
+			name: "005_sessions_indexes",
+			sql: `
+                CREATE INDEX IF NOT EXISTS idx_sessions_planned_event ON sessions(planned_event_id);
+            `,
+		},
+	}
+
+	for _, m := range migrations {
+		applied, err := migrationApplied(db, m.name)
+		if err != nil {
+			return err
+		}
+		if applied {
+			continue
+		}
+
+		if m.name == "002_sessions_metadata" {
+			if err := addColumnIfMissing(db, "sessions", "planned_event_id", "INTEGER"); err != nil {
+				return err
+			}
+			if err := addColumnIfMissing(db, "sessions", "created_at", "DATETIME"); err != nil {
+				return err
+			}
+			if err := addColumnIfMissing(db, "sessions", "updated_at", "DATETIME"); err != nil {
+				return err
+			}
+		} else {
+			if _, err := db.Exec(m.sql); err != nil {
+				return fmt.Errorf("%s: %w", m.name, err)
+			}
+		}
+
+		if _, err := db.Exec(`INSERT INTO schema_migrations(name, applied_at) VALUES (?, ?)`, m.name, time.Now()); err != nil {
+			return err
+		}
+	}
+
+	if _, err := db.Exec(`
+        UPDATE sessions
+        SET created_at = COALESCE(created_at, start_time),
+            updated_at = COALESCE(updated_at, COALESCE(end_time, start_time))
+    `); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func migrationApplied(db *sql.DB, name string) (bool, error) {
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(1) FROM schema_migrations WHERE name = ?`, name).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func addColumnIfMissing(db *sql.DB, tableName, columnName, columnType string) error {
+	rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", tableName))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name string
+		var ctype string
+		var notNull int
+		var dfltValue sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dfltValue, &pk); err != nil {
+			return err
+		}
+		if name == columnName {
+			return nil
+		}
+	}
+
+	_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", tableName, columnName, columnType))
+	return err
 }
