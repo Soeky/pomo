@@ -119,6 +119,9 @@ func ListSessions(ctx context.Context, f SessionFilter) (SessionListResult, erro
 		}
 		result.Rows = append(result.Rows, s)
 	}
+	if err := rows.Err(); err != nil {
+		return SessionListResult{}, err
+	}
 
 	return result, nil
 }
@@ -226,6 +229,9 @@ func PlannedEventsInRange(ctx context.Context, from, to time.Time) ([]PlannedEve
 		}
 		out = append(out, e)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
@@ -328,6 +334,9 @@ func SessionsInRange(ctx context.Context, from, to time.Time) ([]Session, error)
 			s.PlannedEventID = &v
 		}
 		out = append(out, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return out, nil
 }

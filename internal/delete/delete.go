@@ -171,7 +171,6 @@ func (m model) View() string {
 
 // StartDelete launches the Bubble Tea program
 func StartDelete() {
-	db.InitDB()
 	program := tea.NewProgram(NewModel())
 	_, err := program.Run()
 	if err != nil {
@@ -213,6 +212,9 @@ func getRecentSessions(limit int) ([]item, error) {
 			it.Duration = int(durationSec.Int64)
 		}
 		items = append(items, it)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return items, nil
 }

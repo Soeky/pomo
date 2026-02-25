@@ -9,14 +9,30 @@ import (
 	"github.com/Soeky/pomo/internal/parse"
 )
 
-func HandleCorrectCommand(args []string) {
+type CorrectRequest struct {
+	SessionType  string
+	BackDuration time.Duration
+	Topic        string
+}
+
+type CorrectResult struct {
+	SessionType string
+	Topic       string
+	StartTime   time.Time
+	Duration    time.Duration
+}
+
+func ParseCorrectArgs(args []string) (CorrectRequest, error) {
+	if len(args) < 2 {
+		return CorrectRequest{}, fmt.Errorf("expected at least 2 args")
+	}
+
 	sessionType := args[0]
 	durationStr := args[1]
 
 	backDuration, err := parse.ParseDurationFromArg(durationStr)
 	if err != nil {
-		fmt.Println("❌ invalid time format:", err)
-		return
+		return CorrectRequest{}, err
 	}
 
 	topic := "General"
@@ -24,41 +40,44 @@ func HandleCorrectCommand(args []string) {
 		topic = args[2]
 	}
 
-	err = CorrectSession(sessionType, backDuration, topic)
-	if err != nil {
-		fmt.Println("❌ there was an error while correcting:", err)
-	} else {
-		fmt.Println("✅ session has been corrected!")
-	}
+	return CorrectRequest{
+		SessionType:  sessionType,
+		BackDuration: backDuration,
+		Topic:        topic,
+	}, nil
 }
 
-func CorrectSession(sessionType string, backDuration time.Duration, topic string) error {
-	startTime := time.Now().Add(-backDuration)
-
-	// Laufende Session stoppen auf Startzeit
-	_ = db.StopCurrentSessionAt(startTime)
-
-	// Sessiontyp und Basisdauer
+func CorrectSession(now time.Time, req CorrectRequest) (CorrectResult, error) {
 	var sType string
 	var baseDuration time.Duration
 
-	if sessionType == "start" {
+	if req.SessionType == "start" {
 		sType = "focus"
 		baseDuration = time.Duration(config.AppConfig.DefaultFocus) * time.Minute
-	} else if sessionType == "break" {
+	} else if req.SessionType == "break" {
 		sType = "break"
 		baseDuration = time.Duration(config.AppConfig.DefaultBreak) * time.Minute
 	} else {
-		return fmt.Errorf("invalid session type: %s", sessionType)
+		return CorrectResult{}, fmt.Errorf("invalid session type: %s", req.SessionType)
 	}
 
-	// WICHTIG: neue Dauer = baseDuration + backDuration
-	totalDuration := baseDuration + backDuration
+	startTime := now.Add(-req.BackDuration)
+	_ = db.StopCurrentSessionAt(startTime)
+
+	totalDuration := baseDuration + req.BackDuration
 
 	_, err := db.DB.Exec(`
         INSERT INTO sessions (type, topic, start_time, duration)
         VALUES (?, ?, ?, ?)
-    `, sType, topic, startTime, int(totalDuration.Seconds()))
+    `, sType, req.Topic, startTime, int(totalDuration.Seconds()))
+	if err != nil {
+		return CorrectResult{}, err
+	}
 
-	return err
+	return CorrectResult{
+		SessionType: sType,
+		Topic:       req.Topic,
+		StartTime:   startTime,
+		Duration:    totalDuration,
+	}, nil
 }

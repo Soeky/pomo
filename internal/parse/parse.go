@@ -10,14 +10,20 @@ import (
 var timePattern = regexp.MustCompile(`(?i)(\d+)([smh])`)
 
 func ParseDurationFromArg(arg string) (time.Duration, error) {
+	if arg == "" {
+		return 0, fmt.Errorf("invalid time format: %s", arg)
+	}
+
 	matches := timePattern.FindAllStringSubmatch(arg, -1)
 	if matches == nil {
 		return 0, fmt.Errorf("invalid time format: %s", arg)
 	}
 
+	consumed := ""
 	var total time.Duration
 	for _, m := range matches {
 		val, _ := strconv.Atoi(m[1])
+		consumed += m[0]
 		switch m[2] {
 		case "s", "S":
 			total += time.Duration(val) * time.Second
@@ -26,6 +32,10 @@ func ParseDurationFromArg(arg string) (time.Duration, error) {
 		case "h", "H":
 			total += time.Duration(val) * time.Hour
 		}
+	}
+
+	if consumed != arg {
+		return 0, fmt.Errorf("invalid time format: %s", arg)
 	}
 
 	return total, nil

@@ -9,11 +9,22 @@ import (
 	"github.com/Soeky/pomo/internal/parse"
 )
 
-func StartFocus(args []string) {
-	StopIfRunning()
+type StartResult struct {
+	Type            string
+	Topic           string
+	Duration        time.Duration
+	ID              int64
+	StoppedPrevious bool
+}
+
+func StartFocus(args []string) (StartResult, error) {
+	stoppedPrevious, err := StopIfRunning()
+	if err != nil {
+		return StartResult{}, err
+	}
 
 	var duration time.Duration
-	var topic string = "General"
+	topic := "General"
 
 	if len(args) > 0 {
 		parsed, err := parse.ParseDurationFromArg(args[0])
@@ -32,15 +43,23 @@ func StartFocus(args []string) {
 
 	id, err := db.InsertSession("focus", topic, duration)
 	if err != nil {
-		fmt.Println("❌ error starting the work session:", err)
-		return
+		return StartResult{}, err
 	}
 
-	fmt.Printf("🍅 work session started: \"%s\" for %s (ID %d)\n", topic, FormatShortDuration(duration), id)
+	return StartResult{
+		Type:            "focus",
+		Topic:           topic,
+		Duration:        duration,
+		ID:              id,
+		StoppedPrevious: stoppedPrevious,
+	}, nil
 }
 
-func StartBreak(args []string) {
-	StopIfRunning()
+func StartBreak(args []string) (StartResult, error) {
+	stoppedPrevious, err := StopIfRunning()
+	if err != nil {
+		return StartResult{}, err
+	}
 
 	var duration time.Duration
 
@@ -57,11 +76,15 @@ func StartBreak(args []string) {
 
 	id, err := db.InsertSession("break", "", duration)
 	if err != nil {
-		fmt.Println("❌ error starting break session:", err)
-		return
+		return StartResult{}, err
 	}
 
-	fmt.Printf("💤 break started for %s (ID %d)\n", FormatShortDuration(duration), id)
+	return StartResult{
+		Type:            "break",
+		Duration:        duration,
+		ID:              id,
+		StoppedPrevious: stoppedPrevious,
+	}, nil
 }
 
 func FormatShortDuration(d time.Duration) string {

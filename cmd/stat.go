@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/Soeky/pomo/internal/stats"
 	"github.com/spf13/cobra"
 )
@@ -25,7 +29,12 @@ var statCmd = &cobra.Command{
 	`,
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		stats.ShowStats(args)
+		report, err := stats.BuildReport(args, time.Now())
+		if err != nil {
+			fmt.Println("error at statistics:", err)
+			os.Exit(1)
+		}
+		fmt.Print(stats.RenderReport(report))
 	},
 }
 

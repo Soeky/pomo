@@ -1,26 +1,29 @@
 package status
 
 import (
-	"fmt"
+	"time"
+
 	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
 	"github.com/Soeky/pomo/internal/session"
-	"time"
 )
 
-func ShowStatus() {
+type StatusResult struct {
+	Active    bool
+	Emoji     string
+	Formatted string
+}
+
+func CurrentStatus(now time.Time) (StatusResult, error) {
 	currentSession, err := db.GetCurrentSession()
 	if err != nil {
-		fmt.Println("error finding session:", err)
-		return
+		return StatusResult{}, err
 	}
 
 	if currentSession == nil {
-		fmt.Println("📭 no active session.")
-		return
+		return StatusResult{Active: false}, nil
 	}
 
-	now := time.Now()
 	elapsed := now.Sub(currentSession.StartTime)
 
 	var duration time.Duration
@@ -45,7 +48,7 @@ func ShowStatus() {
 	}
 
 	remaining := duration - elapsed
-	formattedTime := session.FormatShortDuration(remaining)
+	formatted := session.FormatShortDuration(remaining)
 
 	if remaining < 0 {
 		if now.Second()%2 == 0 {
@@ -55,5 +58,9 @@ func ShowStatus() {
 		}
 	}
 
-	fmt.Printf("%s %s\n", emoji, formattedTime)
+	return StatusResult{
+		Active:    true,
+		Emoji:     emoji,
+		Formatted: formatted,
+	}, nil
 }
