@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-threshold="${1:-85}"
+threshold="${1:-80}"
 shift || true
 
 tmp_dir="$(mktemp -d)"

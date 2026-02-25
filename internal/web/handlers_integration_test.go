@@ -40,6 +40,22 @@ func TestCalendarEventsGetEmpty(t *testing.T) {
 	}
 }
 
+func TestCalendarPageGet(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/calendar", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected calendar page status: %d", rec.Code)
+	}
+}
+
 func TestCreateSessionAndListTable(t *testing.T) {
 	opened := openWebTestDB(t)
 	defer opened.Close()
@@ -73,6 +89,22 @@ func TestCreateSessionAndListTable(t *testing.T) {
 	body := recTable.Body.String()
 	if !strings.Contains(body, "ProjectX") {
 		t.Fatalf("expected sessions table to contain created topic")
+	}
+}
+
+func TestSessionsTableMethodNotAllowed(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodPost, "/sessions/table", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("unexpected sessions table status: %d", rec.Code)
 	}
 }
 
@@ -141,6 +173,37 @@ func TestCreateSessionValidation(t *testing.T) {
 	}
 }
 
+func TestSessionByIDValidationBranches(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	id := insertSession(t, opened, "focus", "T", "2026-02-25T10:00:00Z", "2026-02-25T10:25:00Z")
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	badIDReq := httptest.NewRequest(http.MethodPatch, "/sessions/not-an-int", nil)
+	badIDRec := httptest.NewRecorder()
+	mux.ServeHTTP(badIDRec, badIDReq)
+	if badIDRec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected bad id status: %d", badIDRec.Code)
+	}
+
+	badType := url.Values{
+		"type":       {"invalid"},
+		"topic":      {"X"},
+		"start_time": {"2026-02-25T10:05"},
+		"end_time":   {"2026-02-25T10:15"},
+	}
+	badTypeReq := httptest.NewRequest(http.MethodPatch, "/sessions/"+id, strings.NewReader(badType.Encode()))
+	badTypeReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	badTypeRec := httptest.NewRecorder()
+	mux.ServeHTTP(badTypeRec, badTypeReq)
+	if badTypeRec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected bad type status: %d", badTypeRec.Code)
+	}
+}
+
 func TestSQLQueryReadOnlyGuard(t *testing.T) {
 	opened := openWebTestDB(t)
 	defer opened.Close()
@@ -160,6 +223,48 @@ func TestSQLQueryReadOnlyGuard(t *testing.T) {
 	}
 	if !strings.Contains(rec.Body.String(), "read-only mode blocks mutating SQL") {
 		t.Fatalf("expected read-only guard error, got: %s", rec.Body.String())
+	}
+}
+
+func TestSQLQueryBranches(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	emptyReq := httptest.NewRequest(http.MethodPost, "/sql/query", strings.NewReader(url.Values{}.Encode()))
+	emptyReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	emptyRec := httptest.NewRecorder()
+	mux.ServeHTTP(emptyRec, emptyReq)
+	if emptyRec.Code != http.StatusOK || !strings.Contains(emptyRec.Body.String(), "query is required") {
+		t.Fatalf("unexpected empty query response: code=%d body=%s", emptyRec.Code, emptyRec.Body.String())
+	}
+
+	multi := url.Values{"query": {"SELECT 1; SELECT 2"}}
+	multiReq := httptest.NewRequest(http.MethodPost, "/sql/query", strings.NewReader(multi.Encode()))
+	multiReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	multiRec := httptest.NewRecorder()
+	mux.ServeHTTP(multiRec, multiReq)
+	if !strings.Contains(multiRec.Body.String(), "only one SQL statement is allowed") {
+		t.Fatalf("expected single statement guard, got: %s", multiRec.Body.String())
+	}
+
+	write := url.Values{"query": {"UPDATE sessions SET topic='x'"}, "write_mode": {"1"}}
+	writeReq := httptest.NewRequest(http.MethodPost, "/sql/query", strings.NewReader(write.Encode()))
+	writeReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	writeRec := httptest.NewRecorder()
+	mux.ServeHTTP(writeRec, writeReq)
+	if writeRec.Code != http.StatusOK || !strings.Contains(writeRec.Body.String(), "write query executed") {
+		t.Fatalf("unexpected write query response: code=%d body=%s", writeRec.Code, writeRec.Body.String())
+	}
+
+	badMethodReq := httptest.NewRequest(http.MethodGet, "/sql/query", nil)
+	badMethodRec := httptest.NewRecorder()
+	mux.ServeHTTP(badMethodRec, badMethodReq)
+	if badMethodRec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("unexpected method status for sql/query: %d", badMethodRec.Code)
 	}
 }
 
@@ -243,6 +348,45 @@ func TestCalendarPlannedEventCreatePatchDelete(t *testing.T) {
 	mux.ServeHTTP(delRec, delReq)
 	if delRec.Code != http.StatusNoContent {
 		t.Fatalf("unexpected delete planned status: got=%d want=%d", delRec.Code, http.StatusNoContent)
+	}
+}
+
+func TestCalendarEventByIDMethodNotAllowed(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/calendar/events/p-1", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("unexpected method status: %d", rec.Code)
+	}
+}
+
+func TestCalendarEventByIDValidation(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	noIDReq := httptest.NewRequest(http.MethodPatch, "/calendar/events/", nil)
+	noIDRec := httptest.NewRecorder()
+	mux.ServeHTTP(noIDRec, noIDReq)
+	if noIDRec.Code != http.StatusNotFound {
+		t.Fatalf("unexpected no-id status: %d", noIDRec.Code)
+	}
+
+	badIDReq := httptest.NewRequest(http.MethodPatch, "/calendar/events/invalid", nil)
+	badIDRec := httptest.NewRecorder()
+	mux.ServeHTTP(badIDRec, badIDReq)
+	if badIDRec.Code != http.StatusBadRequest {
+		t.Fatalf("unexpected bad-id status: %d", badIDRec.Code)
 	}
 }
 

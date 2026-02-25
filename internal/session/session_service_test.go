@@ -45,6 +45,48 @@ func TestStartFocusAndBreak(t *testing.T) {
 	}
 }
 
+func TestStartFocusDurationParsingBranches(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 30
+
+	resWithDuration, err := StartFocus([]string{"15m", "TopicA"})
+	if err != nil {
+		t.Fatalf("StartFocus with duration failed: %v", err)
+	}
+	if resWithDuration.Duration != 15*time.Minute || resWithDuration.Topic != "TopicA" {
+		t.Fatalf("unexpected parsed start focus result: %+v", resWithDuration)
+	}
+
+	resFallback, err := StartFocus([]string{"TopicAsFirstArg"})
+	if err != nil {
+		t.Fatalf("StartFocus fallback failed: %v", err)
+	}
+	if resFallback.Duration != 30*time.Minute || resFallback.Topic != "TopicAsFirstArg" {
+		t.Fatalf("unexpected fallback start focus result: %+v", resFallback)
+	}
+}
+
+func TestStartBreakFallbackToDefault(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultBreak = 7
+
+	res, err := StartBreak([]string{"not-a-duration"})
+	if err != nil {
+		t.Fatalf("StartBreak failed: %v", err)
+	}
+	if res.Duration != 7*time.Minute {
+		t.Fatalf("unexpected default break duration: %v", res.Duration)
+	}
+}
+
 func TestStopSessionNoActive(t *testing.T) {
 	opened := openTestDB(t)
 	defer opened.Close()
@@ -55,6 +97,28 @@ func TestStopSessionNoActive(t *testing.T) {
 	}
 	if res.Stopped {
 		t.Fatalf("expected no active session")
+	}
+}
+
+func TestStopIfRunningAndFormatShortDuration(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	if stopped, err := StopIfRunning(); err != nil || stopped {
+		t.Fatalf("expected no running session initially, stopped=%v err=%v", stopped, err)
+	}
+
+	start := time.Now().UTC().Add(-10 * time.Minute)
+	if _, err := db.DB.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"focus", "X", start, 1500, start, start); err != nil {
+		t.Fatalf("seed session failed: %v", err)
+	}
+	if stopped, err := StopIfRunning(); err != nil || !stopped {
+		t.Fatalf("expected running session to be stopped, stopped=%v err=%v", stopped, err)
+	}
+
+	if got := FormatShortDuration(-90 * time.Second); got != "-01:30" {
+		t.Fatalf("unexpected formatted negative duration: %s", got)
 	}
 }
 

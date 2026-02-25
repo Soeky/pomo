@@ -213,6 +213,9 @@ func getRecentSessions(limit int) ([]item, error) {
 		}
 		items = append(items, it)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	return items, nil
 }
 

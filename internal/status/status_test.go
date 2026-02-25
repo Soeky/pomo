@@ -56,6 +56,53 @@ func TestCurrentStatus_ActiveFocusAndOverdue(t *testing.T) {
 	}
 }
 
+func TestCurrentStatus_BreakTypeUsesSleepEmoji(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultBreak = 5
+
+	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
+	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"break", "", start, int((5 * time.Minute).Seconds()), start, start); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+
+	res, err := CurrentStatus(start.Add(2 * time.Minute))
+	if err != nil {
+		t.Fatalf("CurrentStatus failed: %v", err)
+	}
+	if !res.Active || res.Emoji != "💤" {
+		t.Fatalf("unexpected break status result: %+v", res)
+	}
+}
+
+func TestCurrentStatus_OverdueOddSecondUsesTomatoEmoji(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 1
+
+	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
+	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"focus", "X", start, int((1 * time.Minute).Seconds()), start, start); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+
+	overdueOddSecond := start.Add(2*time.Minute + 11*time.Second)
+	res, err := CurrentStatus(overdueOddSecond)
+	if err != nil {
+		t.Fatalf("CurrentStatus failed: %v", err)
+	}
+	if res.Emoji != "🍅" {
+		t.Fatalf("expected tomato emoji for odd overdue second, got %q", res.Emoji)
+	}
+}
+
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 

@@ -83,6 +83,52 @@ func TestRunMigrationsSupportsLegacySchemaMigrationsTable(t *testing.T) {
 	}
 }
 
+func TestRunMigrationsChecksumMismatch(t *testing.T) {
+	t.Parallel()
+
+	dbPath := filepath.Join(t.TempDir(), "mismatch.db")
+	opened, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer opened.Close()
+
+	if _, err := opened.Exec(`
+		CREATE TABLE schema_migrations (
+			name TEXT PRIMARY KEY,
+			checksum TEXT NOT NULL,
+			applied_at DATETIME NOT NULL
+		);
+		INSERT INTO schema_migrations(name, checksum, applied_at) VALUES ('001_base_sessions', 'wrong-checksum', CURRENT_TIMESTAMP);
+	`); err != nil {
+		t.Fatalf("seed mismatch table failed: %v", err)
+	}
+
+	if err := RunMigrations(context.Background(), opened); err == nil {
+		t.Fatalf("expected checksum mismatch error")
+	}
+}
+
+func TestIsDuplicateColumnErr(t *testing.T) {
+	t.Parallel()
+
+	if isDuplicateColumnErr(nil) {
+		t.Fatalf("nil error must not be duplicate column")
+	}
+	if isDuplicateColumnErr(sql.ErrNoRows) {
+		t.Fatalf("sql.ErrNoRows must not match duplicate column")
+	}
+	if !isDuplicateColumnErr(assertErr("duplicate column name: x")) {
+		t.Fatalf("expected duplicate column detection")
+	}
+}
+
+type textErr string
+
+func (e textErr) Error() string { return string(e) }
+
+func assertErr(s string) error { return textErr(s) }
+
 func tableExists(t *testing.T, db *sql.DB, table string) bool {
 	t.Helper()
 

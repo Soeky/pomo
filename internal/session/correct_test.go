@@ -1,8 +1,13 @@
 package session
 
 import (
+	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Soeky/pomo/internal/config"
+	"github.com/Soeky/pomo/internal/db"
 )
 
 func TestParseCorrectArgs(t *testing.T) {
@@ -52,4 +57,46 @@ func TestCorrectSessionRejectsInvalidType(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected invalid type error")
 	}
+}
+
+func TestCorrectSessionCreatesSession(t *testing.T) {
+	opened := openCorrectDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 25
+
+	now := time.Date(2026, 2, 25, 12, 0, 0, 0, time.UTC)
+	res, err := CorrectSession(now, CorrectRequest{
+		SessionType:  "start",
+		BackDuration: 10 * time.Minute,
+		Topic:        "Retro",
+	})
+	if err != nil {
+		t.Fatalf("CorrectSession failed: %v", err)
+	}
+	if res.SessionType != "focus" {
+		t.Fatalf("unexpected session type: %s", res.SessionType)
+	}
+
+	var count int
+	if err := opened.QueryRow(`SELECT COUNT(1) FROM sessions WHERE topic = ?`, "Retro").Scan(&count); err != nil {
+		t.Fatalf("count corrected sessions failed: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("expected one corrected session, got %d", count)
+	}
+}
+
+func openCorrectDB(t *testing.T) *sql.DB {
+	t.Helper()
+	opened, err := db.Open(filepath.Join(t.TempDir(), "pomo.db"))
+	if err != nil {
+		t.Fatalf("db.Open failed: %v", err)
+	}
+	prev := db.DB
+	db.DB = opened
+	t.Cleanup(func() { db.DB = prev })
+	return opened
 }
