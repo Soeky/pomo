@@ -1,0 +1,20 @@
+{{define "dashboard-module.html"}}
+{{if eq .ID "totals"}}
+  <p><strong>Focus:</strong> {{.Data.FocusMinutes}} min</p>
+  <p><strong>Break:</strong> {{.Data.BreakMinutes}} min</p>
+  <p><strong>Sessions:</strong> {{.Data.Sessions}}</p>
+{{else if eq .ID "top_topics"}}
+  {{if .Data}}
+    {{range .Data}}
+      <p>{{.Topic}}: {{.Minutes}} min ({{.Count}}x)</p>
+    {{end}}
+  {{else}}
+    <p class="muted">No focus sessions yet.</p>
+  {{end}}
+{{else if eq .ID "planned_completion"}}
+  <p><strong>Planned:</strong> {{.Data.PlannedCount}}</p>
+  <p><strong>Done:</strong> {{.Data.DoneCount}}</p>
+{{else}}
+  <p class="muted">Unknown module.</p>
+{{end}}
+{{end}}
