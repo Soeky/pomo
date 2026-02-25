@@ -18,7 +18,12 @@ func (s *Server) dashboardPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "dashboard.html", map[string]any{"Modules": modules}); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "dashboard.html", map[string]any{
+		"Modules":               modules,
+		"ActivePage":            "dashboard",
+		"PageTitle":             "Dashboard",
+		"IncludeCalendarAssets": false,
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }

@@ -24,7 +24,11 @@ func (s *Server) calendarPage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if err := s.tmpl.ExecuteTemplate(w, "calendar.html", nil); err != nil {
+	if err := s.tmpl.ExecuteTemplate(w, "calendar.html", map[string]any{
+		"ActivePage":            "calendar",
+		"PageTitle":             "Calendar",
+		"IncludeCalendarAssets": true,
+	}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
