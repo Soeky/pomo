@@ -171,7 +171,6 @@ func (m model) View() string {
 
 // StartDelete launches the Bubble Tea program
 func StartDelete() {
-	db.InitDB()
 	program := tea.NewProgram(NewModel())
 	_, err := program.Run()
 	if err != nil {

@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"time"
+
 	"github.com/Soeky/pomo/internal/session"
 	"github.com/spf13/cobra"
 )
@@ -18,7 +22,18 @@ var correctCmd = &cobra.Command{
 	`,
 	Args: cobra.MinimumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		session.HandleCorrectCommand(args)
+		req, err := session.ParseCorrectArgs(args)
+		if err != nil {
+			fmt.Println("❌ invalid time format:", err)
+			os.Exit(1)
+		}
+
+		_, err = session.CorrectSession(time.Now(), req)
+		if err != nil {
+			fmt.Println("❌ there was an error while correcting:", err)
+			os.Exit(1)
+		}
+		fmt.Println("✅ session has been corrected!")
 	},
 }
 

@@ -1,23 +1,33 @@
 package session
 
 import (
-	"fmt"
+	"errors"
 
 	"github.com/Soeky/pomo/internal/db"
 )
 
-func StopSession() {
-	err := db.StopCurrentSession()
-	if err != nil {
-		fmt.Println("❌ error while stopping:", err)
-		return
-	}
-	fmt.Println("🛑 session has been stopped")
+type StopResult struct {
+	Stopped bool
 }
 
-func StopIfRunning() {
+func StopSession() (StopResult, error) {
 	err := db.StopCurrentSession()
-	if err == nil {
-		fmt.Println("previous session has been stopped")
+	if err != nil {
+		if errors.Is(err, db.ErrNoRunningSession) {
+			return StopResult{Stopped: false}, nil
+		}
+		return StopResult{}, err
 	}
+	return StopResult{Stopped: true}, nil
+}
+
+func StopIfRunning() (bool, error) {
+	err := db.StopCurrentSession()
+	if err != nil {
+		if errors.Is(err, db.ErrNoRunningSession) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }

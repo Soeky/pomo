@@ -45,12 +45,17 @@ func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
 		var topic string
 		var count int
 		var durSec int
-		rows.Scan(&topic, &count, &durSec)
+		if err := rows.Scan(&topic, &count, &durSec); err != nil {
+			return nil, BreakStat{}, err
+		}
 		focusStats = append(focusStats, FocusStat{
 			Topic:        topic,
 			Count:        count,
 			TotalMinutes: durSec / 60,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, BreakStat{}, err
 	}
 
 	var breakStat BreakStat
@@ -60,7 +65,9 @@ func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
         WHERE type = 'break' AND start_time BETWEEN ? AND ?
     `, start, end)
 	var durSec sql.NullInt64
-	row.Scan(&breakStat.Count, &durSec)
+	if err := row.Scan(&breakStat.Count, &durSec); err != nil {
+		return nil, BreakStat{}, err
+	}
 	if durSec.Valid {
 		breakStat.TotalMinutes = int(durSec.Int64) / 60
 	}
@@ -84,9 +91,14 @@ func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 	for rows.Next() {
 		var s Session
 		var startTime time.Time
-		rows.Scan(&s.Type, &s.Duration, &startTime)
+		if err := rows.Scan(&s.Type, &s.Duration, &startTime); err != nil {
+			return nil, err
+		}
 		s.Start = startTime
 		sessions = append(sessions, s)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	var blocks []Session
@@ -110,6 +122,10 @@ func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 
 func GetTimeRange(view string) (time.Time, time.Time) {
 	now := time.Now()
+	return getTimeRangeAt(view, now)
+}
+
+func getTimeRangeAt(view string, now time.Time) (time.Time, time.Time) {
 	var start time.Time
 
 	switch view {
@@ -143,7 +159,10 @@ func GetTimeRange(view string) (time.Time, time.Time) {
 
 func FormatRangeName(view string) string {
 	now := time.Now()
+	return formatRangeNameAt(view, now)
+}
 
+func formatRangeNameAt(view string, now time.Time) string {
 	switch view {
 	case "day":
 		return now.Format("2006-01-02")

@@ -1,0 +1,21 @@
+name: ci
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Go vet
+        run: go vet ./...
+      - name: Go test
+        run: go test ./...
+      - name: Coverage gate (critical packages)
+        run: ./scripts/coverage_gate.sh 85 ./internal/db ./internal/parse ./internal/session ./internal/stats ./internal/status
