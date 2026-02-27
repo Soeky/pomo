@@ -69,6 +69,7 @@ Status (2026-02-27): done
 - Implemented safe/idempotent reconciliation backfill (`sessions`/`planned_events` -> `events`) via `INSERT OR IGNORE` plus sync triggers.
 - Added compatibility sync triggers on legacy tables to keep `events` parity during transitional branches.
 - Added migration/index/parity/idempotency tests.
+- Added follow-up reconciliation sweep migration (`009_unified_events_reconcile_legacy_rows`) to repair drifted legacy mappings and prune orphan compatibility rows.
 
 - New migrations:
   - `events` table (domain, subtopic, title, description, type, status, source, start/end/duration, timezone, metadata JSON)
@@ -95,6 +96,9 @@ Acceptance:
 
 ## 3) `feature/03-topic-hierarchy-cli-web`
 Goal: ship domain/subtopic tracking end-to-end.
+
+Status (2026-02-27): in progress
+- Prerequisite DB migration hardening completed in feature/02 follow-up (`009_unified_events_reconcile_legacy_rows`) to keep legacy parity stable before topic hierarchy rollout.
 
 - Parsing rules:
   - `Math::Discrete Probability`

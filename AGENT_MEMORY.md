@@ -54,6 +54,13 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Backward-compat mapping for `planned_events` is preserved: migrated rows keep `domain=title` with `subtopic=General` until topic-hierarchy rollout.
 - Migration caveat: if duplicate legacy mappings already exist in `events`, migration keeps the lowest `events.id` row and deletes duplicate legacy-mapped rows before creating the unique index.
 
+## Task 3 Decisions and Caveats (DB Migration Reconciliation Hardening)
+- Added follow-up migration `009_unified_events_reconcile_legacy_rows` to reconcile existing legacy-mapped `events` rows from `sessions`/`planned_events`.
+- Reconciliation policy is rerun-safe: delete orphan legacy mappings, `INSERT OR IGNORE` missing mappings, then normalize/update existing mapped rows to legacy source-of-truth values.
+- Invariant tightened for legacy-backed rows: `recurrence_rule_id`, `workload_target_id`, and `metadata_json` are cleared during reconciliation to prevent drift from legacy-compatible semantics.
+- Migration caveat: rows in `events` with `legacy_source IN ('sessions', 'planned_events')` and no matching legacy parent row are treated as orphaned compatibility artifacts and removed.
+- Ambiguity default used: user prompt named this work as "Task 3"; because requested deliverables were explicit migration/backfill/index tasks, execution followed those explicit deliverables.
+
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.
 - `pomo set` exists but is unclear; target is `pomo config get|set|list|describe`.

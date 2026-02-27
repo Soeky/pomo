@@ -41,8 +41,8 @@ func TestOpenRunsMigrationsOnFreshDatabase(t *testing.T) {
 	if err := opened.QueryRow(`SELECT COUNT(1) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if count < 8 {
-		t.Fatalf("expected at least 8 migrations, got %d", count)
+	if count < 9 {
+		t.Fatalf("expected at least 9 migrations, got %d", count)
 	}
 }
 
