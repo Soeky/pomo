@@ -10,7 +10,12 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "pomo",
 	Short: "🍅 minimalistic pomodoro timer",
-	Long:  "Pomo is a cli tool for work and break sessions with statistics.",
+	Long: `Pomo is a local-first time management CLI and web app.
+Core commands:
+  pomo start [duration] [domain::subtopic]
+  pomo break [duration]
+  pomo stat [range]
+  pomo config list|get|set|describe`,
 }
 
 func Execute() {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Soeky/pomo/internal/store"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type calendarEvent struct {
@@ -181,8 +182,16 @@ func (s *Server) calendarEventByID(w http.ResponseWriter, r *http.Request) {
 		existing.StartTime = start
 		existing.EndTime = &end
 		title := strings.TrimSpace(r.FormValue("title"))
-		if title != "" {
-			existing.Topic = title
+		if existing.Type == "focus" && title != "" {
+			p, err := topics.Parse(title)
+			if err != nil {
+				http.Error(w, "invalid topic format", http.StatusBadRequest)
+				return
+			}
+			existing.Topic = p.Canonical()
+		}
+		if existing.Type == "break" {
+			existing.Topic = ""
 		}
 		if err := s.store.UpdateSession(r.Context(), numericID, existing, "web"); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

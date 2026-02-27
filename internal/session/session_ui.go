@@ -2,11 +2,13 @@ package session
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
 	"github.com/Soeky/pomo/internal/parse"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type StartResult struct {
@@ -24,31 +26,34 @@ func StartFocus(args []string) (StartResult, error) {
 	}
 
 	var duration time.Duration
-	topic := "General"
+	topicInput := ""
 
 	if len(args) > 0 {
 		parsed, err := parse.ParseDurationFromArg(args[0])
 		if err == nil {
 			duration = parsed
-			if len(args) > 1 {
-				topic = args[1]
-			}
+			topicInput = strings.TrimSpace(strings.Join(args[1:], " "))
 		} else {
 			duration = time.Duration(config.AppConfig.DefaultFocus) * time.Minute
-			topic = args[0]
+			topicInput = strings.TrimSpace(strings.Join(args, " "))
 		}
 	} else {
 		duration = time.Duration(config.AppConfig.DefaultFocus) * time.Minute
 	}
 
-	id, err := db.InsertSession("focus", topic, duration)
+	topicPath, err := topics.Parse(topicInput)
+	if err != nil {
+		return StartResult{}, err
+	}
+
+	id, err := db.InsertSession("focus", topicPath.Canonical(), duration)
 	if err != nil {
 		return StartResult{}, err
 	}
 
 	return StartResult{
 		Type:            "focus",
-		Topic:           topic,
+		Topic:           topicPath.Canonical(),
 		Duration:        duration,
 		ID:              id,
 		StoppedPrevious: stoppedPrevious,

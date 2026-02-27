@@ -135,7 +135,7 @@ func TestSessionPatchAndDelete(t *testing.T) {
 	if err := opened.QueryRow(`SELECT type, topic FROM sessions WHERE id = ?`, id).Scan(&gotType, &gotTopic); err != nil {
 		t.Fatalf("query patched session: %v", err)
 	}
-	if gotType != "break" || gotTopic != "UpdatedTopic" {
+	if gotType != "break" || gotTopic != "" {
 		t.Fatalf("unexpected patched values: type=%s topic=%s", gotType, gotTopic)
 	}
 

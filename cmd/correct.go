@@ -10,11 +10,11 @@ import (
 )
 
 var correctCmd = &cobra.Command{
-	Use:   "correct [start|break] [time into the past] [topic]",
+	Use:   "correct [start|break] [time into the past] [domain[::subtopic]]",
 	Short: "corrects the start of a session back in time",
 	Long: `
   pomo correct works as follows:
-  pomo correct start 10m newTopic => 
+  pomo correct start 10m "Math::Discrete Probability" =>
   it stops the previous session at now-10m and starts the current work session at now-10m
 
   This command is there to adjust the last session because sometimes you may forget to use pomo start or pomo break.

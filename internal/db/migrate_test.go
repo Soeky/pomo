@@ -18,7 +18,19 @@ func TestOpenRunsMigrationsOnFreshDatabase(t *testing.T) {
 	}
 	defer opened.Close()
 
-	tables := []string{"sessions", "planned_events", "audit_log", "schema_migrations"}
+	tables := []string{
+		"sessions",
+		"planned_events",
+		"audit_log",
+		"events",
+		"recurrence_rules",
+		"workload_targets",
+		"schedule_constraints",
+		"event_dependencies",
+		"schedule_runs",
+		"schedule_run_events",
+		"schema_migrations",
+	}
 	for _, tbl := range tables {
 		if !tableExists(t, opened, tbl) {
 			t.Fatalf("expected table %q to exist", tbl)
@@ -29,8 +41,8 @@ func TestOpenRunsMigrationsOnFreshDatabase(t *testing.T) {
 	if err := opened.QueryRow(`SELECT COUNT(1) FROM schema_migrations`).Scan(&count); err != nil {
 		t.Fatalf("count migrations: %v", err)
 	}
-	if count < 6 {
-		t.Fatalf("expected at least 6 migrations, got %d", count)
+	if count < 7 {
+		t.Fatalf("expected at least 7 migrations, got %d", count)
 	}
 }
 

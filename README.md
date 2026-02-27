@@ -8,6 +8,9 @@ Minimal Pomodoro CLI with local SQLite storage, stats, and a built-in web UI.
 - Retroactive correction: `correct`
 - Stats reports: `stat` with day/week/month/year/semester/date ranges
 - Interactive delete flow: `delete`
+- Unified event CRUD (single events): `event add|list`
+- Plan progress summary: `plan status`
+- Structured config management: `config list|get|set|describe`
 - Direct DB shell: `db` (via `sqlite3`)
 - Built-in web server: `web start|stop|status|logs|hosts-check`
 - Shell completion generation: `completion` (bash/zsh/fish/powershell)
@@ -46,7 +49,7 @@ By default:
 ### Session Commands
 
 ```bash
-pomo start [duration] [topic]
+pomo start [duration] [domain::subtopic]
 pomo break [duration]
 pomo stop
 pomo status
@@ -57,8 +60,9 @@ Duration format supports combined units such as `25m`, `1h`, `1h30m`, `45s`.
 Examples:
 
 ```bash
-pomo start 50m DeepWork
-pomo start DeepWork            # topic only, uses default_focus
+pomo start 50m Math::DiscreteProbability
+pomo start "Applied Math::Numerical Analysis"
+pomo start Math                # stored as Math::General, uses default_focus
 pomo break 7m
 ```
 
@@ -92,16 +96,13 @@ pomo stat 2026-02-01 2026-02-25
 ### Config
 
 ```bash
-pomo set <default_focus|default_break|semester_start> <value>
+pomo config list
+pomo config get <key>
+pomo config set <key> <value>
+pomo config describe [key]
 ```
 
-Examples:
-
-```bash
-pomo set default_focus 30
-pomo set default_break 7
-pomo set semester_start 2026-02-10
-```
+`pomo set` is still available as a compatibility alias for `pomo config set`.
 
 ### Database and Delete Tools
 
@@ -111,6 +112,19 @@ pomo delete  # interactive session deletion prompt
 ```
 
 `pomo db` requires `sqlite3` installed on your system.
+
+### Unified Event Commands
+
+```bash
+pomo event add --title "Math study block" --start 2026-03-01T10:00 --end 2026-03-01T11:30 --domain Math --subtopic "Discrete Probability"
+pomo event list --from 2026-03-01T00:00 --to 2026-03-08T00:00
+```
+
+### Plan Progress
+
+```bash
+pomo plan status --from 2026-03-01T00:00 --to 2026-03-08T00:00
+```
 
 ### Web UI
 
