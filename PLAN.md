@@ -22,3 +22,78 @@ Features I want:
 Go through the plan, generate a memory file for codex and also ask if something is unclear. what we also should do is enhance the help menu of pomo because some stuff, e.g. pomo set is really unclear. do you also have any suggestions on tools? Plan this in detail step by step and how it makes sense chronologically feature wise. for every part i will generate a seperate feature branch which then will be done step by step.
 
 Generate a Step by Step plan inside IMPLEMENTATION_PLAN.md
+
+  Implement Task 2 from IMPLEMENTATION_PLAN.md in this repository.
+
+  Mandatory context to read first:
+  1) IMPLEMENTATION_PLAN.md
+  2) AGENT_MEMORY.md
+  3) docs/architecture/events.md
+  4) README.md
+
+  Execution rules:
+  - Only implement Task 2 acceptance criteria and required prerequisites.
+  - Preserve backward compatibility unless Task 2 explicitly removes it.
+  - Follow existing code style and test patterns.
+  - If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+  - Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration
+  caveats.
+  - Update IMPLEMENTATION_PLAN.md progress markers for Task 2 (done/in progress, brief notes).
+  - Do not skip tests.
+
+  Deliverables:
+  - Code changes for Task 2
+  - Tests for new behavior and regressions
+  - Migration changes (if needed) with idempotency/backfill safety
+  - Updated docs/help text if user-facing behavior changes
+
+  Validation required before finishing:
+  - gofmt on changed Go files
+  - go test ./...
+  - go vet ./...
+
+  Final response format:
+  1) What was implemented for Task 2
+  2) File-by-file change summary
+  3) Test results
+  4) Any assumptions/defaults used
+  5) What remains (if anything) to fully close Task 2
+
+  Example for Task 2:
+
+  Implement Task 3 from IMPLEMENTATION_PLAN.md in this repository.
+
+  Mandatory context to read first:
+  1) IMPLEMENTATION_PLAN.md
+  2) AGENT_MEMORY.md
+  3) docs/architecture/events.md
+  4) README.md
+
+  Execution rules:
+  - Only implement Task 3 acceptance criteria and required prerequisites.
+  - Preserve backward compatibility unless Task 3 explicitly removes it.
+  - Follow existing code style and test patterns.
+  - If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+  - Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration
+  caveats.
+  - Update IMPLEMENTATION_PLAN.md progress markers for Task 3 (done/in progress, brief notes).
+  - Do not skip tests.
+
+  Deliverables:
+  - DB migrations for unified events + related scheduler tables
+  - Safe/idempotent backfill from sessions/planned_events into events
+  - Indexing and migration tests (idempotency, reconciliation, parity)
+  - Any minimal adapter changes needed to keep app behavior stable
+
+  Validation required before finishing:
+  - gofmt on changed Go files
+  - go test ./...
+  - go vet ./...
+
+  Final response format:
+  1) What was implemented for Task 3
+  2) File-by-file change summary
+  3) Test results
+  4) Any assumptions/defaults used
+  5) What remains (if anything) to fully close Task 3
+

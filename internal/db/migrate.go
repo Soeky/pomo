@@ -140,6 +140,12 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrationFile) error {
 			return err
 		}
 		return addColumnIfMissing(ctx, db, "sessions", "updated_at", "DATETIME")
+	case "008_unified_events_backfill_and_sync":
+		if err := addColumnIfMissing(ctx, db, "events", "timezone", "TEXT NOT NULL DEFAULT 'Local'"); err != nil {
+			return err
+		}
+		_, err := db.ExecContext(ctx, m.content)
+		return err
 	default:
 		_, err := db.ExecContext(ctx, m.content)
 		return err

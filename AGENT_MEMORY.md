@@ -46,6 +46,14 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
   - metric definition changes
   - migration caveats
 
+## Task 2 Decisions and Caveats (`feature/02-db-unified-events-migrations`)
+- Added `events.timezone` with default `Local` for unified event rows.
+- Legacy mapping uniqueness is enforced via `UNIQUE(legacy_source, legacy_id)` index to keep one canonical `events` row per legacy row.
+- Backfill policy is idempotent insert+sync (safe to rerun): legacy rows from `sessions` and `planned_events` are inserted with `INSERT OR IGNORE`, then kept current via sync triggers.
+- Compatibility adapters are DB triggers on `sessions`/`planned_events` (`INSERT`/`UPDATE`/`DELETE`) so legacy flows keep `events` synchronized until cutover.
+- Backward-compat mapping for `planned_events` is preserved: migrated rows keep `domain=title` with `subtopic=General` until topic-hierarchy rollout.
+- Migration caveat: if duplicate legacy mappings already exist in `events`, migration keeps the lowest `events.id` row and deletes duplicate legacy-mapped rows before creating the unique index.
+
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.
 - `pomo set` exists but is unclear; target is `pomo config get|set|list|describe`.

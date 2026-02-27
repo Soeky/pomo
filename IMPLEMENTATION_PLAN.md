@@ -64,6 +64,12 @@ Acceptance:
 ## 2) `feature/02-db-unified-events-migrations`
 Goal: introduce new DB schema and backfill from old tables.
 
+Status (2026-02-27): done
+- Added hardening migration for unified events + scheduler-related indexes.
+- Implemented safe/idempotent reconciliation backfill (`sessions`/`planned_events` -> `events`) via `INSERT OR IGNORE` plus sync triggers.
+- Added compatibility sync triggers on legacy tables to keep `events` parity during transitional branches.
+- Added migration/index/parity/idempotency tests.
+
 - New migrations:
   - `events` table (domain, subtopic, title, description, type, status, source, start/end/duration, timezone, metadata JSON)
   - `event_dependencies`
