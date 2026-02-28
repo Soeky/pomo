@@ -22,12 +22,11 @@ func Parse(input string) (Path, error) {
 		return Path{Domain: DefaultDomain, Subtopic: DefaultSubtopic}, nil
 	}
 
-	if strings.Contains(raw, Delimiter) {
-		parts := strings.SplitN(raw, Delimiter, 2)
-		return ParseParts(parts[0], parts[1])
+	if domainRaw, subtopicRaw, hasDelimiter := splitTopicInput(raw); hasDelimiter {
+		return ParseParts(unescapeTopicPart(domainRaw), unescapeTopicPart(subtopicRaw))
 	}
 
-	return ParseParts(raw, DefaultSubtopic)
+	return ParseParts(unescapeTopicPart(raw), DefaultSubtopic)
 }
 
 func ParseParts(domain, subtopic string) (Path, error) {
@@ -45,5 +44,66 @@ func ParseParts(domain, subtopic string) (Path, error) {
 }
 
 func (p Path) Canonical() string {
-	return p.Domain + Delimiter + p.Subtopic
+	return escapeTopicPart(p.Domain) + Delimiter + escapeTopicPart(p.Subtopic)
+}
+
+func splitTopicInput(raw string) (domain string, subtopic string, hasDelimiter bool) {
+	escaped := false
+	for i := 0; i < len(raw); i++ {
+		switch raw[i] {
+		case '\\':
+			if escaped {
+				escaped = false
+				continue
+			}
+			escaped = true
+		case ':':
+			if escaped {
+				escaped = false
+				continue
+			}
+			if i+1 < len(raw) && raw[i+1] == ':' {
+				return raw[:i], raw[i+2:], true
+			}
+		default:
+			escaped = false
+		}
+	}
+	return raw, "", false
+}
+
+func unescapeTopicPart(input string) string {
+	if input == "" {
+		return input
+	}
+	var b strings.Builder
+	b.Grow(len(input))
+
+	escaped := false
+	for i := 0; i < len(input); i++ {
+		ch := input[i]
+		if escaped {
+			b.WriteByte(ch)
+			escaped = false
+			continue
+		}
+		if ch == '\\' {
+			escaped = true
+			continue
+		}
+		b.WriteByte(ch)
+	}
+	if escaped {
+		b.WriteByte('\\')
+	}
+	return b.String()
+}
+
+func escapeTopicPart(input string) string {
+	if input == "" {
+		return input
+	}
+	out := strings.ReplaceAll(input, `\`, `\\`)
+	out = strings.ReplaceAll(out, Delimiter, `\`+Delimiter)
+	return out
 }

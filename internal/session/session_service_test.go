@@ -87,6 +87,23 @@ func TestStartFocusTopicHierarchy(t *testing.T) {
 	}
 }
 
+func TestStartFocusEscapedDelimiterTopic(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 25
+
+	res, err := StartFocus([]string{`Math\::History::Week 1`})
+	if err != nil {
+		t.Fatalf("StartFocus failed: %v", err)
+	}
+	if res.Topic != `Math\::History::Week 1` {
+		t.Fatalf("unexpected escaped canonical topic: %s", res.Topic)
+	}
+}
+
 func TestStartBreakFallbackToDefault(t *testing.T) {
 	opened := openTestDB(t)
 	defer opened.Close()

@@ -40,6 +40,18 @@ func TestParseCorrectArgsWithMultiWordSubtopic(t *testing.T) {
 	}
 }
 
+func TestParseCorrectArgsWithEscapedDelimiter(t *testing.T) {
+	t.Parallel()
+
+	req, err := ParseCorrectArgs([]string{"start", "15m", `Math\::History::Week 2`})
+	if err != nil {
+		t.Fatalf("ParseCorrectArgs failed: %v", err)
+	}
+	if req.Topic != `Math\::History::Week 2` {
+		t.Fatalf("unexpected escaped canonical topic: %s", req.Topic)
+	}
+}
+
 func TestParseCorrectArgsInvalidDuration(t *testing.T) {
 	t.Parallel()
 

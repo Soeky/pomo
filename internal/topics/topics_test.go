@@ -41,6 +41,21 @@ func TestParse(t *testing.T) {
 			input: "Math::",
 			want:  Path{Domain: "Math", Subtopic: "General"},
 		},
+		{
+			name:  "escaped delimiter in domain",
+			input: `Math\::Discrete::Probability`,
+			want:  Path{Domain: "Math::Discrete", Subtopic: "Probability"},
+		},
+		{
+			name:  "escaped delimiter in subtopic",
+			input: `Math::Discrete\::Probability`,
+			want:  Path{Domain: "Math", Subtopic: "Discrete::Probability"},
+		},
+		{
+			name:      "malformed delimiter missing domain",
+			input:     "::",
+			expectErr: true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -65,5 +80,19 @@ func TestParse(t *testing.T) {
 				t.Fatalf("unexpected canonical: got=%s want=%s", got.Canonical(), tt.want.Canonical())
 			}
 		})
+	}
+}
+
+func TestCanonicalEscapesDelimiterAndBackslash(t *testing.T) {
+	t.Parallel()
+
+	path := Path{
+		Domain:   `Math::Discrete\Probability`,
+		Subtopic: `Unit::1`,
+	}
+	got := path.Canonical()
+	want := `Math\::Discrete\\Probability::Unit\::1`
+	if got != want {
+		t.Fatalf("unexpected canonical string: got=%q want=%q", got, want)
 	}
 }

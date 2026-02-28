@@ -3,10 +3,13 @@ package stats
 import (
 	"database/sql"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type FocusStat struct {
@@ -16,6 +19,12 @@ type FocusStat struct {
 }
 
 type BreakStat struct {
+	Count        int
+	TotalMinutes int
+}
+
+type TopicGroupStat struct {
+	Name         string
 	Count        int
 	TotalMinutes int
 }
@@ -118,6 +127,77 @@ func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 	}
 	blocks = append(blocks, curr)
 	return blocks, nil
+}
+
+func QueryTopicHierarchyStats(start, end time.Time) ([]TopicGroupStat, []TopicGroupStat, error) {
+	rows, err := db.DB.Query(`
+		SELECT COALESCE(topic, ''), COUNT(*), COALESCE(SUM(duration), 0)
+		FROM sessions
+		WHERE type = 'focus' AND start_time BETWEEN ? AND ?
+		GROUP BY topic
+	`, start, end)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	domainAgg := map[string]*TopicGroupStat{}
+	subtopicAgg := map[string]*TopicGroupStat{}
+
+	for rows.Next() {
+		var rawTopic string
+		var count int
+		var durationSec int
+		if err := rows.Scan(&rawTopic, &count, &durationSec); err != nil {
+			return nil, nil, err
+		}
+		minutes := durationSec / 60
+
+		path, err := topics.Parse(rawTopic)
+		if err != nil {
+			trimmed := strings.TrimSpace(rawTopic)
+			if trimmed == "" {
+				trimmed = topics.DefaultDomain
+			}
+			path = topics.Path{Domain: trimmed, Subtopic: topics.DefaultSubtopic}
+		}
+
+		if _, ok := domainAgg[path.Domain]; !ok {
+			domainAgg[path.Domain] = &TopicGroupStat{Name: path.Domain}
+		}
+		domainAgg[path.Domain].Count += count
+		domainAgg[path.Domain].TotalMinutes += minutes
+
+		if _, ok := subtopicAgg[path.Subtopic]; !ok {
+			subtopicAgg[path.Subtopic] = &TopicGroupStat{Name: path.Subtopic}
+		}
+		subtopicAgg[path.Subtopic].Count += count
+		subtopicAgg[path.Subtopic].TotalMinutes += minutes
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	domains := flattenTopicGroups(domainAgg)
+	subtopics := flattenTopicGroups(subtopicAgg)
+	return domains, subtopics, nil
+}
+
+func flattenTopicGroups(in map[string]*TopicGroupStat) []TopicGroupStat {
+	out := make([]TopicGroupStat, 0, len(in))
+	for _, s := range in {
+		out = append(out, *s)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].TotalMinutes != out[j].TotalMinutes {
+			return out[i].TotalMinutes > out[j].TotalMinutes
+		}
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 func GetTimeRange(view string) (time.Time, time.Time) {

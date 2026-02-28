@@ -33,7 +33,7 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Keep legacy commands available during migration with explicit deprecation guidance.
 
 ## Compatibility Checklist
-- Keep existing `sessions` and `planned_events` readable until final cutover.
+- Keep existing `sessions` and `planned_events` readable until explicit final cutover (`pomo upgrade` v2 finalization).
 - Migrations must be idempotent.
 - Existing user DBs must migrate without manual intervention.
 - `go test ./...` must stay green per branch.
@@ -60,6 +60,60 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Invariant tightened for legacy-backed rows: `recurrence_rule_id`, `workload_target_id`, and `metadata_json` are cleared during reconciliation to prevent drift from legacy-compatible semantics.
 - Migration caveat: rows in `events` with `legacy_source IN ('sessions', 'planned_events')` and no matching legacy parent row are treated as orphaned compatibility artifacts and removed.
 - Ambiguity default used: user prompt named this work as "Task 3"; because requested deliverables were explicit migration/backfill/index tasks, execution followed those explicit deliverables.
+
+## Task 3 Decisions and Caveats (Topic Hierarchy CLI/Web + Stats Completion)
+- Escaped delimiter policy: `\::` is treated as a literal `::` inside a topic component; canonical output escapes both backslashes and literal delimiters in components.
+- Parser invariant: `Domain` remains required; malformed combined topics with missing domain still fail validation.
+- Web API compatibility policy:
+  - Session endpoints accept combined `topic` or split `domain` + `subtopic`.
+  - Calendar planned-event endpoints accept combined (`topic` or `title`) or split (`domain` + `subtopic`) representation.
+  - Split representation is normalized to canonical `Domain::Subtopic`.
+  - Legacy free-text planned-event `title` without delimiter remains preserved as-is for backward compatibility.
+- Stats/reporting invariant:
+  - Focus aggregation supports hierarchy rollups by domain and by subtopic.
+  - Semester (`pomo stat sem`) reports include top-domain and top-subtopic sections.
+  - Legacy flat topics continue to map to `Subtopic=General` in hierarchy aggregates.
+- Ambiguity default used: because there was no prior explicit escape syntax rule, `\::` was selected as the parser escape convention and documented here.
+
+## Task 4 Decisions and Caveats (Migration/Adapter Hardening for Unified Events)
+- Added follow-up migration `010_unified_events_legacy_trigger_hardening` to reinforce legacy compatibility adapters.
+- Legacy mutation invariant is now continuously enforced (not only on reconciliation reruns): when `sessions` or `planned_events` rows are inserted/updated, mapped `events` rows clear `recurrence_rule_id`, `workload_target_id`, and `metadata_json`.
+- Migration remains rerun-safe: linkage-field cleanup is idempotent and trigger creation uses `IF NOT EXISTS`.
+- Validation scope now explicitly includes unified scheduler schema/index presence plus replay/idempotency/parity checks in `internal/db/migrate_task4_test.go`.
+- Ambiguity default used: although `feature/04` title focuses on recurring-event UX, execution followed the prompt’s explicit deliverables (DB migrations/backfill/indexing/parity/adapter stability) as the required Task 4 scope.
+
+## Task 4 Decisions and Caveats (Single + Recurring Event Delivery)
+- Recurrence RRULE support is intentionally scoped to `FREQ`, `INTERVAL`, and optional `BYDAY`/`BYMONTHDAY` keys with supported frequencies `DAILY`, `WEEKLY`, `MONTHLY`.
+- Recurrence rule defaults:
+  - `timezone` defaults to `Local` when omitted.
+  - `kind` defaults to `task` when omitted.
+  - Rules are created active by default in CLI/web.
+- Monthly edge-date policy: when `BYMONTHDAY` exceeds a month’s last day, expansion clamps to the month end (for example, day `31` -> `30`/`29`/`28` depending month).
+- Generated recurring occurrences persist into canonical `events` with `source=recurring`, `layer=planned`, `status=planned`, and populated `recurrence_rule_id` provenance.
+- Idempotent generation invariant is enforced in schema via `011_recurring_events_occurrence_indexes`:
+  - partial unique index `idx_events_recurrence_occurrence_unique(recurrence_rule_id, start_time, end_time) WHERE recurrence_rule_id IS NOT NULL`
+  - lookup index `idx_events_recurrence_rule_time(recurrence_rule_id, start_time)`
+- Calendar compatibility/API update:
+  - mixed-source rendering includes `sessions`, `planned_events`, and canonical `events` (`e-<id>`).
+  - calendar patch/delete endpoints now support `e-<id>` IDs in addition to legacy `s-<id>` and `p-<id>`.
+- Web adapter safety default: recurrence/canonical event endpoints now return HTTP 500 (`database is not initialized`) when server runs with a mock store/no DB instead of panicking.
+- Ambiguity default used: for short months in monthly recurrences, clamping-to-month-end was chosen over skipping that month.
+
+## v2 Major Upgrade Decisions (Cutover + CLI Upgrade Command)
+- `pomo upgrade` is the canonical in-CLI upgrade entrypoint (`pomo update` is an alias).
+- Default `pomo upgrade` flow:
+  - create a timestamped DB backup,
+  - run schema migrations,
+  - run one-time v2 cutover finalization,
+  - run CLI self-update via `go install github.com/Soeky/pomo@<version>`.
+- v2 cutover finalization is explicit and idempotent (`internal/db.FinalizeV2Cutover`):
+  - reconciles/backfills legacy `sessions` and `planned_events` rows into `events`,
+  - then drops legacy compatibility sync triggers,
+  - then records completion in `app_meta` (`upgrade.v2_finalized=true`).
+- Post-finalization invariant:
+  - ongoing legacy-table-to-events compatibility sync is disabled by design.
+  - this is the intentional major-version behavior change for dropping backward-compat sync.
+- Ambiguity default used: self-update transport uses `go install` (module-tag based) rather than GitHub release binary download to keep implementation minimal and deterministic in current tooling.
 
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.

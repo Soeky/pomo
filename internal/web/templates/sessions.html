@@ -18,6 +18,19 @@
     </div>
 
     <section class="panel">
+      <h2>Create Session</h2>
+      <form class="toolbar" hx-post="/sessions/create" hx-swap="none">
+        <select name="type">
+          <option value="focus">focus</option>
+          <option value="break">break</option>
+        </select>
+        <input name="domain" placeholder="Domain (e.g. Math)">
+        <input name="subtopic" placeholder="Subtopic (optional)">
+        <input type="datetime-local" name="start_time" required>
+        <input type="datetime-local" name="end_time" required>
+        <button class="btn btn-primary" type="submit">Create</button>
+      </form>
+
       <form class="toolbar" hx-get="/sessions/table" hx-target="#session-table" hx-swap="innerHTML">
         <input name="q" placeholder="Filter by topic">
         <select name="type">
@@ -37,7 +50,7 @@
         <button class="btn btn-primary" type="submit">Apply</button>
       </form>
 
-      <div id="session-table" hx-get="/sessions/table" hx-trigger="load" hx-swap="innerHTML"></div>
+      <div id="session-table" hx-get="/sessions/table" hx-trigger="load, sessionsChanged from:body" hx-swap="innerHTML"></div>
     </section>
   </main>
 </div>

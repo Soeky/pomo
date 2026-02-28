@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -11,18 +12,19 @@ import (
 )
 
 type Event struct {
-	ID          int64
-	Kind        string
-	Title       string
-	Domain      string
-	Subtopic    string
-	Description string
-	StartTime   time.Time
-	EndTime     time.Time
-	DurationSec int
-	Layer       string
-	Status      string
-	Source      string
+	ID               int64
+	Kind             string
+	Title            string
+	Domain           string
+	Subtopic         string
+	Description      string
+	StartTime        time.Time
+	EndTime          time.Time
+	DurationSec      int
+	Layer            string
+	Status           string
+	Source           string
+	RecurrenceRuleID *int64
 }
 
 var allowedKinds = map[string]struct{}{
@@ -71,11 +73,56 @@ func Create(ctx context.Context, e Event) (int64, error) {
 	return res.LastInsertId()
 }
 
+func GetByID(ctx context.Context, id int64) (Event, error) {
+	row := db.DB.QueryRowContext(ctx, `
+		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id
+		FROM events
+		WHERE id = ?`, id)
+	var e Event
+	var ruleID sql.NullInt64
+	if err := row.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID); err != nil {
+		return Event{}, err
+	}
+	if ruleID.Valid {
+		v := ruleID.Int64
+		e.RecurrenceRuleID = &v
+	}
+	return e, nil
+}
+
+func Update(ctx context.Context, id int64, e Event) error {
+	if err := normalizeAndValidate(&e); err != nil {
+		return err
+	}
+	_, err := db.DB.ExecContext(ctx, `
+		UPDATE events
+		SET kind = ?, title = ?, domain = ?, subtopic = ?, description = ?,
+		    start_time = ?, end_time = ?, duration = ?, layer = ?, status = ?, source = ?, updated_at = ?
+		WHERE id = ?`,
+		e.Kind, e.Title, e.Domain, e.Subtopic, e.Description,
+		e.StartTime, e.EndTime, e.DurationSec, e.Layer, e.Status, e.Source, time.Now(), id)
+	return err
+}
+
+func Delete(ctx context.Context, id int64) error {
+	_, err := db.DB.ExecContext(ctx, `DELETE FROM events WHERE id = ?`, id)
+	return err
+}
+
 func ListInRange(ctx context.Context, from, to time.Time) ([]Event, error) {
+	return listWithWhere(ctx, from, to, "")
+}
+
+func ListCanonicalInRange(ctx context.Context, from, to time.Time) ([]Event, error) {
+	return listWithWhere(ctx, from, to, "AND legacy_source IS NULL")
+}
+
+func listWithWhere(ctx context.Context, from, to time.Time, extraWhere string) ([]Event, error) {
 	rows, err := db.DB.QueryContext(ctx, `
-		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source
+		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id
 		FROM events
 		WHERE start_time < ? AND end_time > ?
+		`+extraWhere+`
 		ORDER BY start_time ASC`, to, from)
 	if err != nil {
 		return nil, err
@@ -85,8 +132,13 @@ func ListInRange(ctx context.Context, from, to time.Time) ([]Event, error) {
 	var out []Event
 	for rows.Next() {
 		var e Event
-		if err := rows.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source); err != nil {
+		var ruleID sql.NullInt64
+		if err := rows.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID); err != nil {
 			return nil, err
+		}
+		if ruleID.Valid {
+			v := ruleID.Int64
+			e.RecurrenceRuleID = &v
 		}
 		out = append(out, e)
 	}

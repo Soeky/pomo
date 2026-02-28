@@ -155,6 +155,8 @@ func (s *Server) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/calendar", s.calendarPage)
 	mux.HandleFunc("/calendar/events", s.calendarEvents)
 	mux.HandleFunc("/calendar/events/", s.calendarEventByID)
+	mux.HandleFunc("/calendar/recurrence", s.recurrenceRules)
+	mux.HandleFunc("/calendar/recurrence/", s.recurrenceRuleByID)
 	mux.HandleFunc("/sessions", s.sessionsPage)
 	mux.HandleFunc("/sessions/table", s.sessionsTable)
 	mux.HandleFunc("/sessions/", s.sessionByID)

@@ -73,6 +73,50 @@ func TestCreateUsesSubtopicDefault(t *testing.T) {
 	}
 }
 
+func TestUpdateAndDeleteEvent(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
+	end := start.Add(30 * time.Minute)
+
+	id, err := Create(context.Background(), Event{
+		Title:     "Initial",
+		Domain:    "Math",
+		Subtopic:  "General",
+		StartTime: start,
+		EndTime:   end,
+	})
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+
+	loaded, err := GetByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetByID failed: %v", err)
+	}
+	loaded.Title = "Updated"
+	loaded.EndTime = loaded.EndTime.Add(15 * time.Minute)
+	if err := Update(context.Background(), id, loaded); err != nil {
+		t.Fatalf("Update failed: %v", err)
+	}
+
+	loaded, err = GetByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("GetByID after update failed: %v", err)
+	}
+	if loaded.Title != "Updated" {
+		t.Fatalf("expected updated title, got %q", loaded.Title)
+	}
+
+	if err := Delete(context.Background(), id); err != nil {
+		t.Fatalf("Delete failed: %v", err)
+	}
+	if _, err := GetByID(context.Background(), id); err == nil {
+		t.Fatalf("expected not found after delete")
+	}
+}
+
 func openTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 

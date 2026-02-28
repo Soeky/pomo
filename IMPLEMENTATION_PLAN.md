@@ -11,6 +11,16 @@ Migrate from session tracking to a unified time-management platform with:
 
 This plan is structured as sequential feature branches, each with clear agent ownership and acceptance gates.
 
+## Execution Guardrails (Mandatory)
+- Once a feature task is started, finish the full task scope (all listed acceptance criteria + required validations) before moving to the next feature, unless the user explicitly reprioritizes.
+- A task may stay `in progress` only when there is an explicit blocker documented in that task section with:
+  - blocker reason
+  - concrete next action
+  - owner and date
+- `in progress` without a blocker is not allowed.
+- Do not leave partial implementation carry-over between adjacent features without documenting exact remaining scope and reason in the same task section.
+- Before marking a task `done`, run and record required validation gates for that branch (minimum: formatting + tests + vet where applicable).
+
 ## Assumptions and Locked Decisions
 - Topic CLI format: delimiter syntax (`Domain::Subtopic`), subtopic defaults to `General`.
 - Scheduler strategy v1: deterministic greedy placement with balanced-week constraints.
@@ -97,8 +107,13 @@ Acceptance:
 ## 3) `feature/03-topic-hierarchy-cli-web`
 Goal: ship domain/subtopic tracking end-to-end.
 
-Status (2026-02-27): in progress
-- Prerequisite DB migration hardening completed in feature/02 follow-up (`009_unified_events_reconcile_legacy_rows`) to keep legacy parity stable before topic hierarchy rollout.
+Status (2026-02-28): done
+- Added escaped-delimiter topic parsing (`\::`) with canonical escaping for delimiter/backslash safety.
+- CLI topic flows (`start`/`correct`) now preserve hierarchical canonical output, including escaped edge cases.
+- Web session and calendar create flows now support split `domain` + `subtopic` inputs while preserving combined input compatibility.
+- Web API accepts combined or split topic representation (`topic` or `title`, and/or `domain` + `subtopic`) for session/calendar mutations.
+- Stats now include hierarchy aggregation by domain and subtopic, and semester reports render top-domain/top-subtopic sections.
+- Added parser, CLI/service, stats, and web integration tests to cover malformed delimiters, legacy topics, and split/combined web creation flows.
 
 - Parsing rules:
   - `Math::Discrete Probability`
@@ -126,6 +141,18 @@ Acceptance:
 
 ## 4) `feature/04-single-events-and-recurring-events`
 Goal: support manual one-off events and recurring rules via CLI + web.
+
+Status (2026-02-28): done
+- Prerequisite unified-event migration layer is in place (`007` + `008` + `009`) with safe legacy backfill and reconciliation.
+- Added Task 4 hardening migration (`010_unified_events_legacy_trigger_hardening`) to keep legacy-mapped rows aligned by clearing scheduler linkage fields on legacy mutations.
+- Added recurring occurrence idempotency/index migration (`011_recurring_events_occurrence_indexes`) and extended migration coverage to assert recurrence occurrence indexes plus replay safety.
+- Implemented recurrence rule CRUD + expansion engine (`DAILY`/`WEEKLY`/`MONTHLY`) with generated-event provenance (`recurrence_rule_id`) and safe idempotent window generation.
+- Implemented full CLI recurring flows under `pomo event recur add|list|edit|delete|expand`.
+- Calendar API/UI now supports recurrence rule management, mixed-source rendering (`sessions` + `planned_events` + canonical `events`), and canonical event update/delete via `e-<id>` IDs.
+- Added acceptance tests:
+  - recurrence expansion tests (DST-safe weekly expansion, weekly BYDAY patterns, monthly edge dates)
+  - recurring + canonical single-event CRUD integration coverage
+  - mixed-source calendar rendering coverage
 
 - `pomo event add` (single event)
 - `pomo event recur add` (daily/weekly/monthly with duration and optional domain/subtopic)
@@ -304,6 +331,10 @@ Acceptance:
 ## 12) `feature/12-cutover-cleanup-and-deprecation`
 Goal: complete migration and remove temporary compatibility layers.
 
+Status (2026-02-28): in progress
+- Added explicit major-upgrade cutover routine (`FinalizeV2Cutover`) that performs one-time legacy reconciliation and then disables legacy sync triggers.
+- Added `pomo upgrade` / `pomo update` command path to run migrations, cutover finalization, and CLI self-update (`go install ...@version`).
+
 - Switch primary reads/writes fully to unified `events`.
 - Deprecate old direct-table assumptions.
 - Add migration/version notes.
@@ -337,6 +368,7 @@ Maintenance rule:
   - command changes
   - metric definitions
   - migration caveats
+- Any non-done task must include an explicit blocker entry (reason + next action + owner/date); otherwise it must be closed in the same delivery cycle.
 
 ## Testing Matrix (Applies Across Branches)
 - Unit:

@@ -15,7 +15,8 @@ Core commands:
   pomo start [duration] [domain::subtopic]
   pomo break [duration]
   pomo stat [range]
-  pomo config list|get|set|describe`,
+  pomo config list|get|set|describe
+  pomo upgrade [--version <tag>]`,
 }
 
 func Execute() {

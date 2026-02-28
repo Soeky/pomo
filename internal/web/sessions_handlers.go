@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/Soeky/pomo/internal/store"
-	"github.com/Soeky/pomo/internal/topics"
 )
 
 func (s *Server) sessionsPage(w http.ResponseWriter, r *http.Request) {
@@ -71,16 +70,18 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "type must be focus or break", http.StatusBadRequest)
 		return
 	}
-	topic := strings.TrimSpace(r.FormValue("topic"))
+	topic := ""
 	if sessionType == "focus" {
-		p, err := topics.Parse(topic)
+		parsed, err := parseTopicForm(r, "topic")
 		if err != nil {
 			http.Error(w, "invalid topic format", http.StatusBadRequest)
 			return
 		}
-		topic = p.Canonical()
-	} else {
-		topic = ""
+		if parsed.Provided {
+			topic = parsed.Path.Canonical()
+		} else {
+			topic = "General::General"
+		}
 	}
 	_, err = s.store.CreateSession(r.Context(), store.Session{
 		Type:      sessionType,
@@ -92,6 +93,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("HX-Trigger", "sessionsChanged")
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -129,16 +131,18 @@ func (s *Server) sessionByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "type must be focus or break", http.StatusBadRequest)
 			return
 		}
-		topic := strings.TrimSpace(r.FormValue("topic"))
+		topic := ""
 		if sessionType == "focus" {
-			p, err := topics.Parse(topic)
+			parsed, err := parseTopicForm(r, "topic")
 			if err != nil {
 				http.Error(w, "invalid topic format", http.StatusBadRequest)
 				return
 			}
-			topic = p.Canonical()
-		} else {
-			topic = ""
+			if parsed.Provided {
+				topic = parsed.Path.Canonical()
+			} else {
+				topic = "General::General"
+			}
 		}
 		if err := s.store.UpdateSession(r.Context(), id, store.Session{
 			ID:        id,
@@ -150,6 +154,7 @@ func (s *Server) sessionByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("HX-Trigger", "sessionsChanged")
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

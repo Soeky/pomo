@@ -3,9 +3,11 @@ package stats
 import (
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
 )
 
@@ -28,6 +30,36 @@ func TestBuildReport(t *testing.T) {
 	}
 	if report.WorkTotalMin == 0 {
 		t.Fatalf("expected non-zero work total")
+	}
+}
+
+func TestBuildReportSemesterIncludesHierarchyBreakdown(t *testing.T) {
+	opened := openStatsDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.SemesterStart = "2026-02-01"
+
+	base := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
+	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::Discrete Probability", base, base.Add(25*time.Minute), int((25 * time.Minute).Seconds()), base, base)
+	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::Linear Algebra", base.Add(30*time.Minute), base.Add(55*time.Minute), int((25 * time.Minute).Seconds()), base, base)
+	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "LegacyTopicOnly", base.Add(60*time.Minute), base.Add(85*time.Minute), int((25 * time.Minute).Seconds()), base, base)
+
+	report, err := BuildReport([]string{"sem"}, base.Add(2*time.Hour))
+	if err != nil {
+		t.Fatalf("BuildReport sem failed: %v", err)
+	}
+	if len(report.TopDomains) == 0 || len(report.TopSubtopics) == 0 {
+		t.Fatalf("expected semester report to include hierarchy aggregates")
+	}
+
+	rendered := RenderReport(report)
+	if !strings.Contains(rendered, "Top domains:") || !strings.Contains(rendered, "Top subtopics:") {
+		t.Fatalf("expected rendered semester report hierarchy sections, got: %s", rendered)
 	}
 }
 

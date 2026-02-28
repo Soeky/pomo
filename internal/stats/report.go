@@ -16,6 +16,8 @@ type WorkLine struct {
 type StatsReport struct {
 	Label        string
 	Work         []WorkLine
+	TopDomains   []WorkLine
+	TopSubtopics []WorkLine
 	BreakCount   int
 	BreakMinutes int
 	WorkTotalMin int
@@ -68,6 +70,33 @@ func BuildReport(args []string, now time.Time) (StatsReport, error) {
 		report.WorkTotalMin += e.TotalMinutes
 	}
 
+	if len(args) == 1 && strings.EqualFold(strings.TrimSpace(args[0]), "sem") {
+		domains, subtopics, err := QueryTopicHierarchyStats(start, end)
+		if err != nil {
+			return StatsReport{}, err
+		}
+		for _, d := range domains {
+			report.TopDomains = append(report.TopDomains, WorkLine{
+				Topic:   d.Name,
+				Count:   d.Count,
+				Minutes: d.TotalMinutes,
+			})
+			if len(report.TopDomains) == 5 {
+				break
+			}
+		}
+		for _, s := range subtopics {
+			report.TopSubtopics = append(report.TopSubtopics, WorkLine{
+				Topic:   s.Name,
+				Count:   s.Count,
+				Minutes: s.TotalMinutes,
+			})
+			if len(report.TopSubtopics) == 5 {
+				break
+			}
+		}
+	}
+
 	if workBlockCount > 0 {
 		report.WorkAvgMin = float64(workBlockTotal) / float64(workBlockCount)
 		report.HasWorkAvg = true
@@ -102,6 +131,22 @@ func RenderReport(report StatsReport) string {
 		}
 	} else {
 		b.WriteString("No breaks.\n")
+	}
+
+	if len(report.TopDomains) > 0 || len(report.TopSubtopics) > 0 {
+		b.WriteString("\n🧭 Hierarchy:\n")
+		if len(report.TopDomains) > 0 {
+			b.WriteString("Top domains:\n")
+			for _, line := range report.TopDomains {
+				fmt.Fprintf(&b, "- %-10s %2dx – %s h\n", line.Topic, line.Count, FormatMinutesToHM(line.Minutes))
+			}
+		}
+		if len(report.TopSubtopics) > 0 {
+			b.WriteString("Top subtopics:\n")
+			for _, line := range report.TopSubtopics {
+				fmt.Fprintf(&b, "- %-10s %2dx – %s h\n", line.Topic, line.Count, FormatMinutesToHM(line.Minutes))
+			}
+		}
 	}
 
 	b.WriteString("\n🧠 Total:\n")

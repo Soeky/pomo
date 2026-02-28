@@ -61,7 +61,7 @@ Generate a Step by Step plan inside IMPLEMENTATION_PLAN.md
 
   Example for Task 2:
 
-  Implement Task 4 from IMPLEMENTATION_PLAN.md in this repository.
+  Implement Task 5 from IMPLEMENTATION_PLAN.md in this repository.
 
   Mandatory context to read first:
   1) IMPLEMENTATION_PLAN.md
@@ -70,13 +70,13 @@ Generate a Step by Step plan inside IMPLEMENTATION_PLAN.md
   4) README.md
 
   Execution rules:
-  - Only implement Task 4 acceptance criteria and required prerequisites.
-  - Preserve backward compatibility unless Task 4 explicitly removes it.
+  - Only implement Task 5 acceptance criteria and required prerequisites.
+  - Preserve backward compatibility unless Task 5 explicitly removes it.
   - Follow existing code style and test patterns.
   - If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
   - Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration
   caveats.
-  - Update IMPLEMENTATION_PLAN.md progress markers for Task 4 (done/in progress, brief notes).
+  - Update IMPLEMENTATION_PLAN.md progress markers for Task 5 (done/in progress, brief notes).
   - Do not skip tests.
 
   Deliverables:
@@ -91,9 +91,9 @@ Generate a Step by Step plan inside IMPLEMENTATION_PLAN.md
   - go vet ./...
 
   Final response format:
-  1) What was implemented for Task 4
+  1) What was implemented for Task 5
   2) File-by-file change summary
   3) Test results
   4) Any assumptions/defaults used
-  5) What remains (if anything) to fully close Task 4
+  5) What remains (if anything) to fully close Task 5
 

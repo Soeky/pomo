@@ -22,8 +22,11 @@
       <aside class="panel">
         <h2>Create Planned Event</h2>
         <form id="new-event" hx-post="/calendar/events" hx-swap="none">
-          <label for="title">Title</label>
-          <input id="title" name="title" required>
+          <label for="domain">Domain</label>
+          <input id="domain" name="domain" required>
+
+          <label for="subtopic">Subtopic</label>
+          <input id="subtopic" name="subtopic" placeholder="General">
 
           <label for="description">Description</label>
           <textarea id="description" name="description"></textarea>
@@ -37,6 +40,44 @@
           <button class="btn btn-primary" type="submit">Create Event</button>
         </form>
         <p id="event-status" class="muted"></p>
+
+        <hr>
+        <h2>Recurring Rules</h2>
+        <form id="new-recur">
+          <label for="recur_title">Title</label>
+          <input id="recur_title" name="title" required>
+
+          <label for="recur_domain">Domain</label>
+          <input id="recur_domain" name="domain" required>
+
+          <label for="recur_subtopic">Subtopic</label>
+          <input id="recur_subtopic" name="subtopic" placeholder="General">
+
+          <label for="recur_start">Start</label>
+          <input id="recur_start" type="datetime-local" name="start_time" required>
+
+          <label for="recur_duration">Duration (minutes)</label>
+          <input id="recur_duration" type="number" min="1" name="duration_minutes" value="60" required>
+
+          <label for="recur_freq">Frequency</label>
+          <select id="recur_freq" name="freq">
+            <option value="daily">daily</option>
+            <option value="weekly" selected>weekly</option>
+            <option value="monthly">monthly</option>
+          </select>
+
+          <label for="recur_interval">Interval</label>
+          <input id="recur_interval" type="number" min="1" name="interval" value="1">
+
+          <label for="recur_byday">By Day (MO,TU,...)</label>
+          <input id="recur_byday" name="byday" placeholder="MO,WE,FR">
+
+          <label for="recur_bymonthday">By Month Day</label>
+          <input id="recur_bymonthday" type="number" min="1" max="31" name="bymonthday">
+
+          <button class="btn btn-secondary" type="submit">Add Recurring Rule</button>
+        </form>
+        <div id="recur-list" class="muted">Loading recurring rules...</div>
       </aside>
     </div>
   </main>
@@ -57,7 +98,7 @@
       const endInput = document.getElementById('end_time');
       startInput.value = info.startStr.slice(0, 16);
       endInput.value = info.endStr.slice(0, 16);
-      document.getElementById('title').focus();
+      document.getElementById('domain').focus();
     },
     eventDrop: async (info) => {
       await updateEvent(info.event);
@@ -102,7 +143,69 @@
     node.className = isError ? 'status-error' : 'muted';
   }
 
+  async function loadRecurrenceRules() {
+    const res = await fetch('/calendar/recurrence');
+    if (!res.ok) {
+      document.getElementById('recur-list').textContent = 'Failed to load recurring rules.';
+      return;
+    }
+    const rows = await res.json();
+    if (!rows.length) {
+      document.getElementById('recur-list').textContent = 'No recurring rules.';
+      return;
+    }
+    const html = rows.map((row) => {
+      const end = row.EndDate ? row.EndDate : '-';
+      return `
+        <div class="toolbar" style="margin-bottom:8px; border-top:1px solid #e2e8f0; padding-top:8px;">
+          <div style="flex:1 1 100%;">
+            <strong>#${row.ID}</strong> ${row.Title}<br>
+            <small>${row.Domain}::${row.Subtopic} | ${row.RRule} | start ${row.StartDate} | until ${end}</small>
+          </div>
+          <button class="btn btn-secondary" type="button" onclick="editRule(${row.ID}, '${escapeHtml(row.Title)}')">Edit</button>
+          <button class="btn btn-danger" type="button" onclick="deleteRule(${row.ID})">Delete</button>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('recur-list').innerHTML = html;
+  }
+
+  window.deleteRule = async function(id) {
+    if (!confirm('Delete recurring rule #' + id + '?')) return;
+    const res = await fetch('/calendar/recurrence/' + id, { method: 'DELETE' });
+    if (!res.ok) {
+      showStatus('Delete recurring rule failed.', true);
+      return;
+    }
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule deleted.');
+  };
+
+  window.editRule = async function(id, currentTitle) {
+    const nextTitle = prompt('New title for rule #' + id, currentTitle);
+    if (nextTitle === null) return;
+    const body = new URLSearchParams({ title: nextTitle });
+    const res = await fetch('/calendar/recurrence/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) {
+      showStatus('Edit recurring rule failed.', true);
+      return;
+    }
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule updated.');
+  };
+
+  function escapeHtml(v) {
+    return (v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   cal.render();
+  loadRecurrenceRules();
 
   document.getElementById('new-event').addEventListener('htmx:afterRequest', (evt) => {
     if (evt.detail.successful) {
@@ -112,6 +215,24 @@
       return;
     }
     showStatus('Create failed.', true);
+  });
+
+  document.getElementById('new-recur').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const body = new URLSearchParams(new FormData(evt.target));
+    const res = await fetch('/calendar/recurrence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) {
+      showStatus('Create recurring rule failed.', true);
+      return;
+    }
+    evt.target.reset();
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule created.');
   });
 })();
 </script>
