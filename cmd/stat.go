@@ -25,7 +25,7 @@ var statCmd = &cobra.Command{
 	pomo stat year | pomo stat 2025:
 		prints the stats of the current year
 	pomo stat sem:
-		prints the stats of the current semester. Semester start can be set in the configs using pomo set
+		prints the stats of the current semester. Semester start can be set with: pomo config set semester_start YYYY-MM-DD
 	`,
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {

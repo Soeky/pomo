@@ -13,6 +13,7 @@ Minimal Pomodoro CLI with local SQLite storage, stats, and a built-in web UI.
 - One-command major upgrade flow: `upgrade` / `update`
 - Plan progress summary: `plan status`
 - Structured config management: `config list|get|set|describe`
+- Guided daily workflow help: `help workflow`
 - Direct DB shell: `db` (via `sqlite3`)
 - Built-in web server: `web start|stop|status|logs|hosts-check`
 - Shell completion generation: `completion` (bash/zsh/fish/powershell)
@@ -45,6 +46,21 @@ By default:
 - `start` uses `default_focus` minutes and topic `General`
 - `break` uses `default_break` minutes
 - Starting a new session stops any currently running session first
+
+### Help & Workflow
+
+```bash
+pomo --help
+pomo help workflow
+pomo workflow
+```
+
+`pomo help workflow` provides the recommended daily flow:
+1. review plan status
+2. tune targets and constraints
+3. run scheduler dry-run/apply
+4. execute sessions (`start` / `break`)
+5. review day/plan metrics
 
 ## Commands
 
@@ -106,7 +122,7 @@ pomo config set <key> <value>
 pomo config describe [key]
 ```
 
-`pomo set` is still available as a compatibility alias for `pomo config set`.
+`pomo set` is still available as a compatibility alias for `pomo config set`, and now prints deprecation guidance.
 
 Effective-focus break credit is controlled by `break_credit_threshold_minutes` (default `10`):
 
@@ -134,6 +150,9 @@ pomo event recur list --active-only
 pomo event recur edit 1 --title "Deep Review" --interval 2
 pomo event recur expand --from 2026-03-01T00:00 --to 2026-03-31T23:59
 pomo event recur delete 1
+pomo event dep add 42 41 --required
+pomo event dep list 42
+pomo event dep override 42 --admin --reason "manual validation done offline"
 ```
 
 ### Plan & Scheduler

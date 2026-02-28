@@ -1,0 +1,21 @@
+Manage dependency edges between events and explicit blocking overrides.
+
+Examples:
+  pomo event dep add 42 41 --required
+  pomo event dep list 42
+  pomo event dep delete 42 41
+  pomo event dep override 42 --admin --reason "manual validation done offline"
+
+Usage:
+  pomo event dep [command]
+
+Available Commands:
+  add         add or update a dependency edge
+  delete      delete a dependency edge
+  list        list dependencies for an event
+  override    enable or clear dependency blocking override (requires --admin)
+
+Flags:
+  -h, --help   help for dep
+
+Use "pomo event dep [command] --help" for more information about a command.

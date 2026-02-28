@@ -246,6 +246,23 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Validation artifact note:
   - startup/memory comparisons are tracked in `docs/performance/task9_web_runtime.md` using isolated-home harness runs.
 
+## Task 10 Decisions and Caveats (Help UX + Command IA)
+- Help-surface IA now treats `config` as the canonical settings interface:
+  - `pomo config get|set|list|describe` is documented in root/config help and README.
+  - `pomo set` remains available as a compatibility alias and now always prints deprecation + migration guidance.
+- New workflow help topic:
+  - Added dedicated top-level `workflow` command with recommended day flow so both `pomo workflow` and `pomo help workflow` are supported.
+- Command-group help enrichment:
+  - `Long` help for root/event/plan groups now includes concrete examples for topic delimiter usage, recurring rules, scheduler flow, and dependency operations.
+  - `event recur` and `event dep` subgroup help now include example-driven usage directly in command help output.
+- Test coverage additions:
+  - golden snapshots for key help outputs under `cmd/testdata/help/*.golden`.
+  - integration-style CLI example validation tests execute documented examples in safe `--help` mode to ensure command/flag compatibility remains intact.
+- Documentation alignment:
+  - README now includes the workflow help entrypoint and example-driven scheduler/dependency command flow.
+- Ambiguity default used:
+  - `workflow` was implemented as a visible command (not hidden help-only topic) to keep discovery high while still satisfying `pomo help workflow`.
+
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.
-- `pomo set` exists but is unclear; target is `pomo config get|set|list|describe`.
+- Config command IA now centers on `pomo config get|set|list|describe`; `pomo set` remains as deprecated compatibility alias.

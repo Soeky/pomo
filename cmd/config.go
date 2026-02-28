@@ -14,12 +14,22 @@ var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "manage pomo configuration values",
 	Long: `Run without subcommands to open the Bubble Tea config wizard.
-Manage configuration values used by CLI, web, and scheduler behavior.
-Use:
+Manage configuration values used by CLI, web, scheduler, and metrics.
+
+Commands:
   pomo config list
   pomo config get <key>
   pomo config set <key> <value>
-  pomo config describe [key]`,
+  pomo config describe [key]
+
+Examples:
+  pomo config get default_focus
+  pomo config set default_focus 50
+  pomo config set break_credit_threshold_minutes 10
+  pomo config describe web_mode
+
+Compatibility:
+  pomo set <key> <value>   # deprecated alias; prints migration guidance`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runConfigWizardTUI(cmd); err != nil {
 			fmt.Println("❌ config wizard failed:", err)

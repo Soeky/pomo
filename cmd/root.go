@@ -9,15 +9,25 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "pomo",
-	Short: "🍅 minimalistic pomodoro timer",
+	Short: "🍅 local-first time management CLI",
 	Long: `Pomo is a local-first time management CLI and web app.
-Core commands:
-  pomo start [duration] [domain::subtopic]
-  pomo break [duration]
-  pomo stat [range]
+
+Core command groups:
+  pomo start|break|stop|status
+  pomo event add|list|recur|dep
   pomo plan target|constraint|generate|status
-  pomo config list|get|set|describe
-  pomo upgrade [--version <tag>]`,
+  pomo config get|set|list|describe
+  pomo web start|stop|status|logs|hosts-check
+
+Topic delimiter examples:
+  pomo start 50m Math::DiscreteProbability
+  pomo start "Math\\::History::Week 1"   # escaped delimiter in domain
+
+Discover the recommended daily flow:
+  pomo help workflow
+
+Compatibility alias (deprecated, still supported):
+  pomo set <key> <value>   # use "pomo config set" instead`,
 }
 
 func Execute() {

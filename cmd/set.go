@@ -14,13 +14,15 @@ var setCmd = &cobra.Command{
 	Long: `Deprecated alias for:
   pomo config set <key> <value>
 
-Use these commands for clarity:
+Use these commands instead:
   pomo config list
   pomo config get <key>
-  pomo config describe [key]`,
+  pomo config describe [key]
+  pomo config set <key> <value>`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("⚠️ `pomo set` is deprecated. Use `pomo config set`.")
+		fmt.Println("⚠️ `pomo set` is deprecated and will be removed in a future major release.")
+		fmt.Println("   Use `pomo config set <key> <value>` (discover keys via `pomo config list` / `pomo config describe`).")
 		err := config.HandleSetCommand(args)
 		if err != nil {
 			fmt.Println("error in set cmd", err)

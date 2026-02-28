@@ -80,7 +80,13 @@ var eventCmd = &cobra.Command{
 Subcommands remain available for non-interactive usage:
   event add|list
   event recur add|list|edit|delete|expand
-  event dep add|list|delete|override`,
+  event dep add|list|delete|override
+
+Examples:
+  pomo event add --title "Math study block" --start 2026-03-01T10:00 --end 2026-03-01T11:30 --domain Math --subtopic Discrete
+  pomo event recur add --title "Weekly Review" --start 2026-03-02T09:00 --duration 1h --freq weekly --byday MO,WE --domain Planning --subtopic General
+  pomo event dep add 42 41 --required
+  pomo event dep override 42 --admin --reason "completed prerequisite outside pomo"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runEventManagerTUI(cmd); err != nil {
 			fmt.Println("❌ event manager failed:", err)
@@ -92,11 +98,25 @@ Subcommands remain available for non-interactive usage:
 var eventRecurCmd = &cobra.Command{
 	Use:   "recur",
 	Short: "manage recurring rules",
+	Long: `Create and manage recurring rule templates, then expand them into concrete events.
+
+Examples:
+  pomo event recur add --title "Weekly Review" --start 2026-03-02T09:00 --duration 1h --freq weekly --byday MO,WE --domain Planning --subtopic General
+  pomo event recur list --active-only
+  pomo event recur edit 1 --interval 2 --title "Deep Review"
+  pomo event recur expand --from 2026-03-01T00:00 --to 2026-03-31T23:59`,
 }
 
 var eventDepCmd = &cobra.Command{
 	Use:   "dep",
 	Short: "manage event dependencies and blocking overrides",
+	Long: `Manage dependency edges between events and explicit blocking overrides.
+
+Examples:
+  pomo event dep add 42 41 --required
+  pomo event dep list 42
+  pomo event dep delete 42 41
+  pomo event dep override 42 --admin --reason "manual validation done offline"`,
 }
 
 var eventAddCmd = &cobra.Command{

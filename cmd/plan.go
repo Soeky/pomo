@@ -61,7 +61,17 @@ Subcommands remain available for non-interactive usage:
   plan status
   plan target add|list|delete|set-active
   plan constraint show|set
-  plan generate`,
+  plan generate
+
+Recommended scheduler workflow:
+  1) set targets
+     pomo plan target add --domain Math --subtopic Discrete --cadence weekly --hours 8
+  2) review/update constraints
+     pomo plan constraint set --weekdays mon,tue,wed,thu,fri --day-start 08:00 --day-end 22:00 --max-hours-day 8
+  3) preview generation
+     pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --dry-run
+  4) apply generation
+     pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --replace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if err := runSchedulerReviewTUI(cmd); err != nil {
 			fmt.Println("❌ scheduler review failed:", err)
@@ -173,6 +183,13 @@ var planGenerateCmd = &cobra.Command{
 var planTargetCmd = &cobra.Command{
 	Use:   "target",
 	Short: "manage workload targets",
+	Long: `Manage recurring workload objectives consumed by scheduler generation.
+
+Examples:
+  pomo plan target add --domain Math --subtopic Discrete --cadence weekly --hours 8
+  pomo plan target add --title "Gym sessions" --domain Gym --subtopic General --cadence weekly --occurrences 4 --duration 2h
+  pomo plan target list --active-only
+  pomo plan target set-active 3 --active=false`,
 }
 
 var planTargetAddCmd = &cobra.Command{
@@ -281,6 +298,11 @@ var planTargetSetActiveCmd = &cobra.Command{
 var planConstraintCmd = &cobra.Command{
 	Use:   "constraint",
 	Short: "manage scheduler constraints",
+	Long: `Manage scheduling boundaries used by balanced-week generation.
+
+Examples:
+  pomo plan constraint show
+  pomo plan constraint set --weekdays mon,tue,wed,thu,fri --day-start 08:00 --day-end 22:00 --lunch-start 12:30 --lunch-duration 60 --dinner-start 19:00 --dinner-duration 60 --max-hours-day 8 --timezone Local`,
 }
 
 var planConstraintShowCmd = &cobra.Command{

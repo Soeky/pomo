@@ -355,6 +355,13 @@ Acceptance:
 ## 10) `feature/10-help-ux-and-command-information-architecture`
 Goal: make CLI discoverable and self-explanatory.
 
+Status (2026-02-28): done
+- Completed command IA/help refresh for root and command groups (`config`, `event`, `event recur`, `event dep`, `plan`, `target`, `constraint`) with concrete examples.
+- Added dedicated `workflow` command/help topic so `pomo help workflow` provides a recommended daily flow.
+- Preserved `pomo set` as compatibility alias with explicit deprecation warning + migration guidance to `pomo config set`.
+- Added golden snapshot tests for help output and integration-style example validation tests.
+- Updated README with help/workflow model and dependency/scheduler-oriented example coverage.
+
 - Replace ambiguous `pomo set` UX:
   - introduce `pomo config get|set|list|describe`
   - keep `set` as compatibility alias with warning
