@@ -11,6 +11,7 @@ import (
 	"github.com/Soeky/pomo/internal/events"
 	"github.com/Soeky/pomo/internal/parse"
 	"github.com/Soeky/pomo/internal/topics"
+	"github.com/Soeky/pomo/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -75,6 +76,17 @@ var (
 var eventCmd = &cobra.Command{
 	Use:   "event",
 	Short: "manage planned and done events in unified event storage",
+	Long: `Run without subcommands to open the Bubble Tea event manager.
+Subcommands remain available for non-interactive usage:
+  event add|list
+  event recur add|list|edit|delete|expand
+  event dep add|list|delete|override`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runEventManagerTUI(cmd); err != nil {
+			fmt.Println("❌ event manager failed:", err)
+			os.Exit(1)
+		}
+	},
 }
 
 var eventRecurCmd = &cobra.Command{
@@ -691,4 +703,12 @@ func defaultIfEmpty(v, fallback string) string {
 		return fallback
 	}
 	return v
+}
+
+func runEventManagerTUI(cmd *cobra.Command) error {
+	return tui.RunEventManager(tui.RunOptions{
+		Input:      cmd.InOrStdin(),
+		Output:     cmd.OutOrStdout(),
+		NoRenderer: tui.NoRendererFromEnv(),
+	})
 }

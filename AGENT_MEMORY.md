@@ -209,6 +209,23 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
   - this is the intentional major-version behavior change for dropping backward-compat sync.
 - Ambiguity default used: self-update transport uses `go install` (module-tag based) rather than GitHub release binary download to keep implementation minimal and deterministic in current tooling.
 
+## Task 8 Decisions and Caveats (Bubble Tea Management Suite)
+- Root command TUI entrypoints:
+  - `pomo event` now opens Bubble Tea event management.
+  - `pomo plan` now opens Bubble Tea scheduler review/apply.
+  - `pomo config` now opens Bubble Tea config wizard.
+- Backward-compatibility policy preserved:
+  - existing non-interactive subcommands remain available (`event add|list|recur|dep`, `plan target|constraint|generate|status`, `config list|get|set|describe`).
+  - quick commands remain plain CLI (`start`, `break`, `stop`, `status`).
+- Event-manager TUI scope:
+  - supports single-event add/edit/delete, recurring-rule add/edit/delete, and dependency add/delete/override/list flows.
+  - dependency override is always applied with explicit admin intent from TUI (`admin=true`, origin=`tui`) to preserve Task 6 policy.
+- Config wizard persistence policy:
+  - scheduler constraints are saved to `schedule_constraints` (`balanced_v1`) via scheduler service.
+  - related defaults in `config.AppConfig` are also synchronized and written with `config.SaveConfig` (weekday/day window/meal windows + break threshold).
+- Ambiguity default used:
+  - for recurring-rule edit in TUI, leaving fields blank keeps current values; entering `-` for `until` clears rule end date.
+
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.
 - `pomo set` exists but is unclear; target is `pomo config get|set|list|describe`.

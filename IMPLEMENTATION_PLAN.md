@@ -287,6 +287,17 @@ Acceptance:
 ## 8) `feature/08-tui-management-suite`
 Goal: convert planning/config management flows to TUI (retain quick commands as plain CLI).
 
+Status (2026-02-28): done
+- Added Bubble Tea management suite under `internal/tui` and wired root command entrypoints:
+  - `pomo event` launches event manager with single-event add/edit/delete, recurring-rule add/edit/delete, and dependency editor actions.
+  - `pomo plan` launches scheduler review/apply screen (dry-run review and apply execution).
+  - `pomo config` launches config wizard for weekday/day-window/meal-break constraints and break-threshold updates.
+- Preserved non-TUI quick-session commands (`start`, `break`, `stop`, `status`) unchanged.
+- Added acceptance-focused tests:
+  - non-interactive model state transitions for event/scheduler/config models,
+  - keyboard accessibility/navigation coverage (`arrows`, `j/k`, `tab`, `shift+tab`, `esc`, `q`/`ctrl+c`),
+  - command startup/exit smoke tests for TUI entry commands.
+
 - New TUIs (Bubble Tea):
   - Event manager (single/recurring add/edit/delete)
   - Scheduler review/apply screen

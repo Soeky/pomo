@@ -6,18 +6,26 @@ import (
 	"sort"
 
 	"github.com/Soeky/pomo/internal/config"
+	"github.com/Soeky/pomo/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 var configCmd = &cobra.Command{
 	Use:   "config",
 	Short: "manage pomo configuration values",
-	Long: `Manage configuration values used by CLI, web, and scheduler behavior.
+	Long: `Run without subcommands to open the Bubble Tea config wizard.
+Manage configuration values used by CLI, web, and scheduler behavior.
 Use:
   pomo config list
   pomo config get <key>
   pomo config set <key> <value>
   pomo config describe [key]`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runConfigWizardTUI(cmd); err != nil {
+			fmt.Println("❌ config wizard failed:", err)
+			os.Exit(1)
+		}
+	},
 }
 
 var configListCmd = &cobra.Command{
@@ -93,4 +101,12 @@ func init() {
 	configCmd.AddCommand(configSetCmd)
 	configCmd.AddCommand(configDescribeCmd)
 	rootCmd.AddCommand(configCmd)
+}
+
+func runConfigWizardTUI(cmd *cobra.Command) error {
+	return tui.RunConfigWizard(tui.RunOptions{
+		Input:      cmd.InOrStdin(),
+		Output:     cmd.OutOrStdout(),
+		NoRenderer: tui.NoRendererFromEnv(),
+	})
 }

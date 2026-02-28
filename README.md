@@ -99,6 +99,7 @@ pomo stat 2026-02-01 2026-02-25
 ### Config
 
 ```bash
+pomo config              # launches config wizard TUI
 pomo config list
 pomo config get <key>
 pomo config set <key> <value>
@@ -125,6 +126,7 @@ pomo delete  # interactive session deletion prompt
 ### Unified Event Commands
 
 ```bash
+pomo event               # launches event manager TUI
 pomo event add --title "Math study block" --start 2026-03-01T10:00 --end 2026-03-01T11:30 --domain Math --subtopic "Discrete Probability"
 pomo event list --from 2026-03-01T00:00 --to 2026-03-08T00:00
 pomo event recur add --title "Weekly Review" --start 2026-03-02T09:00 --duration 1h --freq weekly --byday MO,WE --domain Planning --subtopic General
@@ -137,6 +139,7 @@ pomo event recur delete 1
 ### Plan & Scheduler
 
 ```bash
+pomo plan                # launches scheduler review/apply TUI
 pomo plan status --from 2026-03-01T00:00 --to 2026-03-08T00:00
 pomo plan target add --domain Math --subtopic Discrete --cadence weekly --hours 8
 pomo plan target add --title "Gym sessions" --domain Gym --subtopic General --cadence weekly --occurrences 4 --duration 2h
@@ -146,6 +149,8 @@ pomo plan constraint set --weekdays mon,tue,wed,thu,fri --day-start 08:00 --day-
 pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --replace
 pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --dry-run
 ```
+
+The quick session commands `start`, `break`, `stop`, and `status` remain non-TUI for speed.
 
 ### Upgrade / Update
 

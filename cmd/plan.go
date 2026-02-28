@@ -12,6 +12,7 @@ import (
 	"github.com/Soeky/pomo/internal/parse"
 	"github.com/Soeky/pomo/internal/scheduler"
 	"github.com/Soeky/pomo/internal/topics"
+	"github.com/Soeky/pomo/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +56,18 @@ var (
 var planCmd = &cobra.Command{
 	Use:   "plan",
 	Short: "planning and scheduling workflows",
+	Long: `Run without subcommands to open the Bubble Tea scheduler review/apply screen.
+Subcommands remain available for non-interactive usage:
+  plan status
+  plan target add|list|delete|set-active
+  plan constraint show|set
+  plan generate`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runSchedulerReviewTUI(cmd); err != nil {
+			fmt.Println("❌ scheduler review failed:", err)
+			os.Exit(1)
+		}
+	},
 }
 
 var planStatusCmd = &cobra.Command{
@@ -457,4 +470,12 @@ func init() {
 	planConstraintCmd.AddCommand(planConstraintSetCmd)
 
 	rootCmd.AddCommand(planCmd)
+}
+
+func runSchedulerReviewTUI(cmd *cobra.Command) error {
+	return tui.RunSchedulerReview(tui.RunOptions{
+		Input:      cmd.InOrStdin(),
+		Output:     cmd.OutOrStdout(),
+		NoRenderer: tui.NoRendererFromEnv(),
+	})
 }
