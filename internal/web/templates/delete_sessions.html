@@ -1,0 +1,116 @@
+{{define "delete_sessions.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Delete Sessions</h1>
+        <p class="page-subtitle">Bulk-delete recent sessions with explicit confirmation.</p>
+      </div>
+      <span class="badge">Cleanup</span>
+    </div>
+
+    <section class="panel">
+      <h2>Recent Sessions</h2>
+      <form id="delete-load-form" class="toolbar">
+        <input name="limit" type="number" min="1" max="200" value="20">
+        <button class="btn btn-secondary" type="submit">Load</button>
+      </form>
+      <div id="delete-table" class="table-shell"></div>
+      <button class="btn btn-danger" id="delete-selected-btn" type="button">Delete Selected</button>
+      <p id="delete-status" class="muted"></p>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const tableNode = document.getElementById('delete-table');
+  const statusNode = document.getElementById('delete-status');
+
+  function showStatus(message, isError) {
+    statusNode.textContent = message;
+    statusNode.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function requestJSON(url, options = {}) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  async function loadRows(limit) {
+    const data = await requestJSON('/api/delete/sessions/recent?limit=' + encodeURIComponent(limit));
+    const rows = data.Rows || [];
+    const html = `
+      <table>
+        <thead><tr><th>Select</th><th>ID</th><th>Type</th><th>Topic</th><th>Start</th><th>End</th><th>Duration</th></tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td><input type="checkbox" class="delete-row" value="${row.id}"></td>
+              <td>${row.id}</td>
+              <td>${escapeHtml(row.type || '')}</td>
+              <td>${escapeHtml(row.topic || '')}</td>
+              <td>${escapeHtml((row.start_time || '').slice(0, 16).replace('T', ' '))}</td>
+              <td>${escapeHtml(((row.end_time || '') + '').slice(0, 16).replace('T', ' '))}</td>
+              <td>${row.duration_sec || 0}s</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    tableNode.innerHTML = html;
+  }
+
+  document.getElementById('delete-load-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const limit = (new FormData(evt.target).get('limit') || '20').toString();
+    try {
+      await loadRows(limit);
+      showStatus('Sessions loaded.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('delete-selected-btn').addEventListener('click', async () => {
+    const ids = Array.from(document.querySelectorAll('.delete-row:checked')).map((node) => Number(node.value)).filter(Boolean);
+    if (!ids.length) {
+      showStatus('Select at least one session.');
+      return;
+    }
+    if (!confirm('Delete ' + ids.length + ' selected sessions?')) return;
+    try {
+      const result = await requestJSON('/api/delete/sessions/bulk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+      await loadRows(20);
+      showStatus('Deleted ' + (result.deleted || 0) + ' sessions.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  function escapeHtml(value) {
+    return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  loadRows(20).catch((err) => showStatus(err.message, true));
+})();
+</script>
+</body>
+</html>
+{{end}}

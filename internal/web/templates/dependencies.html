@@ -1,0 +1,166 @@
+{{define "dependencies.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Dependencies</h1>
+        <p class="page-subtitle">Manage event dependency edges and blocking overrides.</p>
+      </div>
+      <span class="badge">Dependency Graph</span>
+    </div>
+
+    <section class="panel">
+      <h2>List Dependencies</h2>
+      <form id="dep-list-form" class="toolbar">
+        <input name="event_id" type="number" min="1" placeholder="Event ID" required>
+        <button class="btn btn-secondary" type="submit">Load</button>
+      </form>
+      <div id="dep-list-output" class="table-shell"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Add Dependency</h2>
+      <form id="dep-add-form" class="toolbar">
+        <input name="event_id" type="number" min="1" placeholder="Event ID" required>
+        <input name="depends_on_event_id" type="number" min="1" placeholder="Depends On ID" required>
+        <label><input name="required" type="checkbox" checked> required</label>
+        <button class="btn btn-primary" type="submit">Add</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Delete Dependency</h2>
+      <form id="dep-delete-form" class="toolbar">
+        <input name="event_id" type="number" min="1" placeholder="Event ID" required>
+        <input name="depends_on_event_id" type="number" min="1" placeholder="Depends On ID" required>
+        <button class="btn btn-danger" type="submit">Delete</button>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Override Blocking</h2>
+      <form id="dep-override-form" class="toolbar">
+        <input name="event_id" type="number" min="1" placeholder="Event ID" required>
+        <label><input name="clear" type="checkbox"> clear existing override</label>
+        <input name="reason" placeholder="Reason (optional)">
+        <label><input name="admin" type="checkbox" checked> admin confirmation</label>
+        <button class="btn btn-secondary" type="submit">Apply Override</button>
+      </form>
+      <p id="dep-status" class="muted"></p>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const statusNode = document.getElementById('dep-status');
+
+  function showStatus(message, isError) {
+    statusNode.textContent = message;
+    statusNode.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function requestJSON(url, options = {}) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  document.getElementById('dep-list-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const id = new FormData(evt.target).get('event_id');
+    try {
+      const data = await requestJSON('/api/events/' + id + '/dependencies');
+      const rows = data.rows || [];
+      const html = `
+        <table>
+          <thead><tr><th>Event</th><th>Depends On</th><th>Required</th><th>Depends Status</th><th>Depends Title</th></tr></thead>
+          <tbody>
+            ${rows.map((row) => `
+              <tr>
+                <td>${row.EventID}</td>
+                <td>${row.DependsOnEventID}</td>
+                <td>${row.Required ? 'yes' : 'no'}</td>
+                <td>${escapeHtml(row.DependsOnStatus || '')}</td>
+                <td>${escapeHtml(row.DependsOnTitle || '')}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+      document.getElementById('dep-list-output').innerHTML = html;
+      showStatus('Dependencies loaded.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('dep-add-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const fd = new FormData(evt.target);
+    try {
+      await requestJSON('/api/events/' + fd.get('event_id') + '/dependencies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          depends_on_event_id: Number(fd.get('depends_on_event_id')),
+          required: !!fd.get('required')
+        })
+      });
+      showStatus('Dependency added.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('dep-delete-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const fd = new FormData(evt.target);
+    try {
+      await requestJSON('/api/events/' + fd.get('event_id') + '/dependencies/' + fd.get('depends_on_event_id'), {
+        method: 'DELETE'
+      });
+      showStatus('Dependency deleted.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('dep-override-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const fd = new FormData(evt.target);
+    try {
+      await requestJSON('/api/events/' + fd.get('event_id') + '/override', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          admin: !!fd.get('admin'),
+          clear: !!fd.get('clear'),
+          reason: (fd.get('reason') || '').toString()
+        })
+      });
+      showStatus('Override updated.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  function escapeHtml(value) {
+    return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+})();
+</script>
+</body>
+</html>
+{{end}}

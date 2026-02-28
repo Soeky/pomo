@@ -1,0 +1,65 @@
+{{define "workflow.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Workflow Guide</h1>
+        <p class="page-subtitle">Recommended daily sequence for planning and execution.</p>
+      </div>
+      <span class="badge">Guide</span>
+    </div>
+
+    <section class="panel">
+      <h2>Daily Workflow</h2>
+      <div id="workflow-content" class="list-shell muted">Loading workflow...</div>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const node = document.getElementById('workflow-content');
+
+  async function loadWorkflow() {
+    const res = await fetch('/api/workflow');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      node.textContent = data.error || 'failed to load workflow';
+      node.className = 'status-error';
+      return;
+    }
+    const steps = data.steps || [];
+    node.innerHTML = `
+      <ol>
+        ${steps.map((step) => `
+          <li>
+            <strong>${escapeHtml(step.title || '')}</strong><br>
+            <span>${escapeHtml(step.description || '')}</span><br>
+            <code>${escapeHtml(step.cli_example || '')}</code>
+          </li>
+        `).join('')}
+      </ol>
+    `;
+    node.className = 'list-shell';
+  }
+
+  function escapeHtml(value) {
+    return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  loadWorkflow();
+})();
+</script>
+</body>
+</html>
+{{end}}

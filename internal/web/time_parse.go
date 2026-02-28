@@ -20,7 +20,7 @@ func parseAnyTime(v string) (time.Time, error) {
 	if v == "" {
 		return time.Time{}, fmt.Errorf("empty time")
 	}
-	layouts := []string{time.RFC3339, "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04"}
+	layouts := []string{time.RFC3339, "2006-01-02T15:04", "2006-01-02 15:04:05", "2006-01-02 15:04", "2006-01-02"}
 	for _, layout := range layouts {
 		if t, err := time.Parse(layout, v); err == nil {
 			return t, nil

@@ -1,0 +1,332 @@
+{{define "events.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Events</h1>
+        <p class="page-subtitle">Canonical event CRUD plus recurrence management and expansion.</p>
+      </div>
+      <span class="badge">Event Workspace</span>
+    </div>
+
+    <section class="panel">
+      <h2>Create Event</h2>
+      <form id="event-create-form" class="toolbar">
+        <input name="title" placeholder="Title" required>
+        <input name="domain" placeholder="Domain" required>
+        <input name="subtopic" placeholder="Subtopic">
+        <input name="start_time" type="datetime-local" required>
+        <input name="end_time" type="datetime-local" required>
+        <select name="kind">
+          <option value="task">task</option>
+          <option value="focus">focus</option>
+          <option value="break">break</option>
+          <option value="class">class</option>
+          <option value="exercise">exercise</option>
+          <option value="meal">meal</option>
+          <option value="other">other</option>
+        </select>
+        <select name="layer">
+          <option value="planned">planned</option>
+          <option value="done">done</option>
+        </select>
+        <select name="status">
+          <option value="planned">planned</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+          <option value="blocked">blocked</option>
+          <option value="canceled">canceled</option>
+        </select>
+        <select name="source">
+          <option value="manual">manual</option>
+          <option value="tracked">tracked</option>
+          <option value="recurring">recurring</option>
+          <option value="scheduler">scheduler</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Create Event</button>
+      </form>
+      <p id="events-status" class="muted"></p>
+    </section>
+
+    <section class="panel">
+      <h2>List / Edit / Delete Events</h2>
+      <form id="events-list-form" class="toolbar">
+        <input name="from" type="datetime-local">
+        <input name="to" type="datetime-local">
+        <select name="layer">
+          <option value="">any layer</option>
+          <option value="planned">planned</option>
+          <option value="done">done</option>
+        </select>
+        <select name="status">
+          <option value="">any status</option>
+          <option value="planned">planned</option>
+          <option value="in_progress">in_progress</option>
+          <option value="done">done</option>
+          <option value="blocked">blocked</option>
+          <option value="canceled">canceled</option>
+        </select>
+        <select name="source">
+          <option value="">any source</option>
+          <option value="manual">manual</option>
+          <option value="tracked">tracked</option>
+          <option value="recurring">recurring</option>
+          <option value="scheduler">scheduler</option>
+        </select>
+        <button class="btn btn-secondary" type="submit">Refresh</button>
+      </form>
+      <div id="events-table" class="table-shell"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Create Recurrence Rule</h2>
+      <form id="recur-create-form" class="toolbar">
+        <input name="title" placeholder="Title" required>
+        <input name="domain" placeholder="Domain" required>
+        <input name="subtopic" placeholder="Subtopic">
+        <input name="start_time" type="datetime-local" required>
+        <input name="duration" placeholder="Duration (e.g. 1h)">
+        <input name="freq" placeholder="Freq DAILY|WEEKLY|MONTHLY" value="WEEKLY">
+        <input name="interval" type="number" min="1" value="1">
+        <input name="byday" placeholder="ByDay MO,WE">
+        <input name="bymonthday" type="number" min="1" max="31" placeholder="ByMonthDay">
+        <input name="timezone" placeholder="Timezone" value="Local">
+        <input name="until" type="datetime-local">
+        <select name="kind">
+          <option value="task">task</option>
+          <option value="focus">focus</option>
+          <option value="break">break</option>
+          <option value="class">class</option>
+          <option value="exercise">exercise</option>
+          <option value="meal">meal</option>
+          <option value="other">other</option>
+        </select>
+        <label><input type="checkbox" name="active" checked> active</label>
+        <button class="btn btn-primary" type="submit">Create Rule</button>
+      </form>
+      <form id="recur-expand-form" class="toolbar">
+        <input name="from" type="datetime-local" required>
+        <input name="to" type="datetime-local" required>
+        <input name="rule_id" type="number" min="0" placeholder="Rule ID (optional)">
+        <button class="btn btn-secondary" type="submit">Expand Recurrence</button>
+      </form>
+      <form id="recur-edit-form" class="toolbar">
+        <input name="id" type="number" min="1" placeholder="Rule ID" required>
+        <input name="title" placeholder="New title (optional)">
+        <input name="duration" placeholder="New duration (optional)">
+        <input name="freq" placeholder="New freq (optional)">
+        <input name="interval" type="number" min="1" placeholder="New interval">
+        <input name="byday" placeholder="New byday">
+        <input name="bymonthday" type="number" min="1" max="31" placeholder="New bymonthday">
+        <button class="btn btn-secondary" type="submit">Edit Rule</button>
+      </form>
+      <form id="recur-delete-form" class="toolbar">
+        <input name="id" type="number" min="1" placeholder="Rule ID" required>
+        <button class="btn btn-danger" type="submit">Delete Rule</button>
+      </form>
+      <div id="recur-table" class="table-shell"></div>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const statusNode = document.getElementById('events-status');
+
+  function showStatus(message, isError) {
+    statusNode.textContent = message;
+    statusNode.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function requestJSON(url, options = {}) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  function formJSON(form) {
+    const fd = new FormData(form);
+    const out = {};
+    for (const [k, v] of fd.entries()) out[k] = v;
+    return out;
+  }
+
+  async function loadEvents() {
+    const fd = new FormData(document.getElementById('events-list-form'));
+    const params = new URLSearchParams();
+    ['from', 'to', 'layer', 'status', 'source'].forEach((key) => {
+      const value = (fd.get(key) || '').toString().trim();
+      if (value) params.set(key, value);
+    });
+    const data = await requestJSON('/api/events?' + params.toString());
+    const rows = data.rows || [];
+    const html = `
+      <table>
+        <thead><tr><th>ID</th><th>Title</th><th>Kind</th><th>Layer</th><th>Status</th><th>Source</th><th>Start</th><th>End</th><th>Topic</th><th>Action</th></tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${row.ID}</td>
+              <td>${escapeHtml(row.Title || '')}</td>
+              <td>${escapeHtml(row.Kind || '')}</td>
+              <td>${escapeHtml(row.Layer || '')}</td>
+              <td>${escapeHtml(row.Status || '')}</td>
+              <td>${escapeHtml(row.Source || '')}</td>
+              <td>${escapeHtml((row.StartTime || '').slice(0, 16).replace('T', ' '))}</td>
+              <td>${escapeHtml((row.EndTime || '').slice(0, 16).replace('T', ' '))}</td>
+              <td>${escapeHtml((row.Domain || '') + '::' + (row.Subtopic || ''))}</td>
+              <td><button class="btn btn-danger" onclick="deleteEvent(${row.ID})">Delete</button></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    document.getElementById('events-table').innerHTML = html;
+  }
+
+  async function loadRecurrenceRules() {
+    const data = await requestJSON('/api/events/recurrence');
+    const rows = data.rows || [];
+    const html = `
+      <table>
+        <thead><tr><th>ID</th><th>Title</th><th>Kind</th><th>Topic</th><th>RRule</th><th>Active</th></tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${row.ID}</td>
+              <td>${escapeHtml(row.Title || '')}</td>
+              <td>${escapeHtml(row.Kind || '')}</td>
+              <td>${escapeHtml((row.Domain || '') + '::' + (row.Subtopic || ''))}</td>
+              <td>${escapeHtml(row.RRule || '')}</td>
+              <td>${row.Active ? 'yes' : 'no'}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    document.getElementById('recur-table').innerHTML = html;
+  }
+
+  window.deleteEvent = async function(id) {
+    if (!confirm('Delete event ' + id + '?')) return;
+    try {
+      await requestJSON('/api/events/' + id, { method: 'DELETE' });
+      await loadEvents();
+      showStatus('Event deleted.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  };
+
+  document.getElementById('event-create-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    try {
+      await requestJSON('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formJSON(evt.target))
+      });
+      evt.target.reset();
+      await loadEvents();
+      showStatus('Event created.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('events-list-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    try {
+      await loadEvents();
+      showStatus('Events refreshed.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('recur-create-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    payload.active = !!payload.active;
+    try {
+      await requestJSON('/api/events/recurrence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      evt.target.reset();
+      await loadRecurrenceRules();
+      showStatus('Recurrence rule created.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('recur-expand-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    try {
+      await requestJSON('/api/events/recurrence/expand', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formJSON(evt.target))
+      });
+      await loadEvents();
+      showStatus('Recurrence expansion completed.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('recur-edit-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    const id = payload.id;
+    delete payload.id;
+    try {
+      await requestJSON('/api/events/recurrence/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadRecurrenceRules();
+      showStatus('Recurrence rule updated.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('recur-delete-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    if (!confirm('Delete recurrence rule ' + payload.id + '?')) return;
+    try {
+      await requestJSON('/api/events/recurrence/' + payload.id, { method: 'DELETE' });
+      await loadRecurrenceRules();
+      showStatus('Recurrence rule deleted.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  function escapeHtml(value) {
+    return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  loadEvents();
+  loadRecurrenceRules();
+})();
+</script>
+</body>
+</html>
+{{end}}

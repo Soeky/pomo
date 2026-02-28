@@ -427,12 +427,21 @@ Status (2026-02-28): done
   - session lifecycle (`start`/`break`/`stop`/`status`/`correct`)
   - store adapters and web session/calendar CRUD
   - stats + dashboard metrics/reporting queries
+- Added web parity workspaces/APIs for CLI-equivalent flows:
+  - `/events`, `/dependencies`, `/planner`, `/reports`, `/config`, `/delete`, `/workflow`
+  - `/api/events*`, `/api/planner*`, `/api/reports*`, `/api/config*`, `/api/delete*`, `/api/workflow`, `/api/sessions*`
+- Fixed web topic precedence bug so explicit `domain/subtopic` is honored when `topic` is omitted.
 - Calendar API now emits canonical `e-<id>` entries as primary IDs and treats legacy `s-`/`p-` IDs as deprecated compatibility lookups.
 - Added migration/version notes with release checklist + rollback guidance in `docs/migrations/task12_cutover.md`.
 - Added Task 12 migration safety validation (`internal/db/migrate_task12_test.go`) covering:
   - legacy fixture -> latest migration -> finalization parity
   - post-cutover canonical writes not mutating legacy tables
   - end-to-end range reads via canonical store adapters.
+- Final quality gates passed in this branch:
+  - `go test ./...`
+  - `go test -race ./...`
+  - `make test-cover` (total 72.1%)
+  - `go vet ./...`
 
 - Switch primary reads/writes fully to unified `events`.
 - Deprecate old direct-table assumptions.

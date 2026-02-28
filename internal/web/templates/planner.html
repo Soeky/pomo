@@ -1,0 +1,277 @@
+{{define "planner.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Planner</h1>
+        <p class="page-subtitle">Targets, constraints, status, and scheduler generation in one place.</p>
+      </div>
+      <span class="badge">Scheduler</span>
+    </div>
+
+    <section class="panel">
+      <h2>Plan Status</h2>
+      <form id="planner-status-form" class="toolbar">
+        <input name="from" type="datetime-local" required>
+        <input name="to" type="datetime-local" required>
+        <button class="btn btn-secondary" type="submit">Load Status</button>
+      </form>
+      <pre id="planner-status-output" class="code-shell"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Generate Schedule</h2>
+      <form id="planner-generate-form" class="toolbar">
+        <input name="from" type="datetime-local" required>
+        <input name="to" type="datetime-local" required>
+        <label><input name="dry_run" type="checkbox" checked> dry run</label>
+        <label><input name="replace" type="checkbox" checked> replace existing scheduler rows</label>
+        <button class="btn btn-primary" type="submit">Run Generate</button>
+      </form>
+      <pre id="planner-generate-output" class="code-shell"></pre>
+    </section>
+
+    <section class="panel">
+      <h2>Workload Targets</h2>
+      <form id="planner-target-create-form" class="toolbar">
+        <input name="title" placeholder="Title">
+        <input name="domain" placeholder="Domain" required>
+        <input name="subtopic" placeholder="Subtopic">
+        <input name="cadence" placeholder="Cadence daily|weekly|monthly" value="weekly">
+        <input name="duration" placeholder="Duration e.g. 8h">
+        <input name="hours" type="number" step="0.25" placeholder="Hours (alternative)">
+        <input name="occurrences" type="number" min="0" placeholder="Occurrences">
+        <label><input name="active" type="checkbox" checked> active</label>
+        <button class="btn btn-primary" type="submit">Create Target</button>
+      </form>
+      <form id="planner-target-active-form" class="toolbar">
+        <input name="id" type="number" min="1" placeholder="Target ID" required>
+        <label><input name="active" type="checkbox" checked> active</label>
+        <button class="btn btn-secondary" type="submit">Set Active</button>
+      </form>
+      <form id="planner-target-delete-form" class="toolbar">
+        <input name="id" type="number" min="1" placeholder="Target ID" required>
+        <button class="btn btn-danger" type="submit">Delete Target</button>
+      </form>
+      <button class="btn btn-secondary" id="planner-target-refresh-btn" type="button">Refresh Targets</button>
+      <div id="planner-targets-output" class="table-shell"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Constraints</h2>
+      <form id="planner-constraint-form" class="toolbar">
+        <input name="active_weekdays" placeholder="weekdays csv e.g. mon,tue,wed,thu,fri">
+        <input name="day_start" placeholder="day_start HH:MM">
+        <input name="day_end" placeholder="day_end HH:MM">
+        <input name="lunch_start" placeholder="lunch_start HH:MM">
+        <input name="lunch_duration_minutes" type="number" min="1" placeholder="lunch duration min">
+        <input name="dinner_start" placeholder="dinner_start HH:MM">
+        <input name="dinner_duration_minutes" type="number" min="1" placeholder="dinner duration min">
+        <input name="max_hours_per_day" type="number" min="1" placeholder="max hours/day">
+        <input name="timezone" placeholder="timezone" value="Local">
+        <button class="btn btn-primary" type="submit">Update Constraints</button>
+      </form>
+      <button class="btn btn-secondary" id="planner-constraint-refresh-btn" type="button">Refresh Constraints</button>
+      <pre id="planner-constraints-output" class="code-shell"></pre>
+      <p id="planner-status" class="muted"></p>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const statusNode = document.getElementById('planner-status');
+  const statusOutput = document.getElementById('planner-status-output');
+  const generateOutput = document.getElementById('planner-generate-output');
+  const constraintsOutput = document.getElementById('planner-constraints-output');
+  const targetsOutput = document.getElementById('planner-targets-output');
+
+  function showStatus(message, isError) {
+    statusNode.textContent = message;
+    statusNode.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function requestJSON(url, options = {}) {
+    const res = await fetch(url, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  function formJSON(form) {
+    const fd = new FormData(form);
+    const out = {};
+    for (const [k, v] of fd.entries()) out[k] = v;
+    return out;
+  }
+
+  document.getElementById('planner-status-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const data = formJSON(evt.target);
+    try {
+      const res = await requestJSON('/api/planner/status?from=' + encodeURIComponent(data.from) + '&to=' + encodeURIComponent(data.to));
+      statusOutput.textContent = JSON.stringify(res, null, 2);
+      showStatus('Planner status loaded.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('planner-generate-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    payload.dry_run = !!payload.dry_run;
+    payload.replace = !!payload.replace;
+    try {
+      const res = await requestJSON('/api/planner/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      generateOutput.textContent = JSON.stringify(res, null, 2);
+      showStatus('Planner generation finished.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  async function loadTargets() {
+    const res = await requestJSON('/api/planner/targets');
+    const rows = res.rows || [];
+    const html = `
+      <table>
+        <thead><tr><th>ID</th><th>Active</th><th>Cadence</th><th>Topic</th><th>Requirement</th><th>Title</th></tr></thead>
+        <tbody>
+          ${rows.map((row) => `
+            <tr>
+              <td>${row.ID}</td>
+              <td>${row.Active ? 'yes' : 'no'}</td>
+              <td>${escapeHtml(row.Cadence || '')}</td>
+              <td>${escapeHtml((row.Domain || '') + '::' + (row.Subtopic || ''))}</td>
+              <td>${row.TargetOccurrences > 0 ? row.TargetOccurrences + 'x @ ' + row.TargetSeconds + 's' : row.TargetSeconds + 's'}</td>
+              <td>${escapeHtml(row.Title || '')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+    targetsOutput.innerHTML = html;
+  }
+
+  document.getElementById('planner-target-create-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    payload.hours = Number(payload.hours || 0);
+    payload.occurrences = Number(payload.occurrences || 0);
+    payload.active = !!payload.active;
+    try {
+      await requestJSON('/api/planner/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadTargets();
+      showStatus('Target created.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('planner-target-active-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    try {
+      await requestJSON('/api/planner/targets/' + payload.id + '/active', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !!payload.active })
+      });
+      await loadTargets();
+      showStatus('Target state updated.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('planner-target-delete-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    if (!confirm('Delete target ' + payload.id + '?')) return;
+    try {
+      await requestJSON('/api/planner/targets/' + payload.id, { method: 'DELETE' });
+      await loadTargets();
+      showStatus('Target deleted.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('planner-target-refresh-btn').addEventListener('click', async () => {
+    try {
+      await loadTargets();
+      showStatus('Targets refreshed.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  async function loadConstraints() {
+    const res = await requestJSON('/api/planner/constraints');
+    constraintsOutput.textContent = JSON.stringify(res, null, 2);
+  }
+
+  document.getElementById('planner-constraint-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const payload = formJSON(evt.target);
+    if (payload.active_weekdays) {
+      payload.active_weekdays = payload.active_weekdays.split(',').map((v) => v.trim()).filter(Boolean);
+    } else {
+      delete payload.active_weekdays;
+    }
+    ['lunch_duration_minutes', 'dinner_duration_minutes', 'max_hours_per_day'].forEach((key) => {
+      if (payload[key]) payload[key] = Number(payload[key]);
+      else delete payload[key];
+    });
+    try {
+      await requestJSON('/api/planner/constraints', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      await loadConstraints();
+      showStatus('Constraints updated.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('planner-constraint-refresh-btn').addEventListener('click', async () => {
+    try {
+      await loadConstraints();
+      showStatus('Constraints refreshed.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  function escapeHtml(value) {
+    return (value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  loadTargets();
+  loadConstraints();
+})();
+</script>
+</body>
+</html>
+{{end}}

@@ -232,6 +232,21 @@ pomo web start --daemon=false      # compatibility alias for --mode on_demand
 
 Web endpoints include dashboard (`/`), calendar (`/calendar`), sessions (`/sessions`), SQL console (`/sql`), and health (`/healthz`).
 
+CLI-equivalent web workspaces:
+- `/events`: add/list/delete events, manage recurrence rules, run recurrence expansion.
+- `/dependencies`: add/list/delete dependencies and toggle blocked overrides.
+- `/planner`: status, generate (dry-run/apply), target CRUD, constraints update.
+- `/reports`: `stat`, `adherence`, and `plan-vs-actual` report rendering.
+- `/config`: list/get/set/describe config keys.
+- `/delete`: recent sessions + bulk delete.
+- `/workflow`: guided daily command flow.
+
+Quick web flow:
+1. Start web: `pomo web start`
+2. Open `http://127.0.0.1:3210/events` to add events/recurrence.
+3. Open `http://127.0.0.1:3210/dependencies` to link prerequisite events.
+4. Open `http://127.0.0.1:3210/planner` to set targets/constraints and generate schedule.
+
 ## Shell Completion
 
 Generate completion directly:

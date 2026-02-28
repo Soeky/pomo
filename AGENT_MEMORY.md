@@ -306,6 +306,13 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
     - canonical-only post-cutover writes,
     - unchanged legacy table counts after post-cutover writes,
     - end-to-end read parity via event-backed store adapters.
+- Web parity surface delivered for CLI-equivalent operations:
+  - workspace pages: `/events`, `/dependencies`, `/planner`, `/reports`, `/config`, `/delete`, `/workflow`.
+  - JSON APIs: `/api/sessions*`, `/api/events*` (CRUD/dependencies/override/recurrence), `/api/planner*`, `/api/reports*`, `/api/config*`, `/api/delete/sessions/*`, `/api/workflow`.
+- Topic precedence invariant for web payloads:
+  - when `topic` is non-empty, parse/canonicalize from `topic`.
+  - when `topic` is empty, use explicit `domain/subtopic` (do not coerce to `General::General`).
+  - fallback to defaults only if both representations are absent/invalid.
 - Ambiguity default used:
   - for deprecated calendar prefixes, compatibility resolution via `legacy_source` lookup was chosen over hard rejection to provide a bounded transition path while still making `e-<id>` canonical.
 

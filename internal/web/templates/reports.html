@@ -1,0 +1,84 @@
+{{define "reports.html"}}
+<!doctype html>
+<html lang="en">
+{{template "head.html" .}}
+<body>
+<div class="app-shell">
+  {{template "sidebar.html" .}}
+  <div class="sidebar-backdrop" onclick="document.body.classList.remove('sidebar-open')"></div>
+  <main class="layout-main">
+    <div class="mobile-top">
+      <button class="btn btn-secondary mobile-toggle" type="button" onclick="document.body.classList.toggle('sidebar-open')">Menu</button>
+      <div class="mobile-brand">pomo</div>
+    </div>
+
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">Stat, adherence, and plan-vs-actual reports with CLI-equivalent argument controls.</p>
+      </div>
+      <span class="badge">Analytics</span>
+    </div>
+
+    <section class="panel">
+      <h2>Run Report</h2>
+      <form id="report-form" class="toolbar">
+        <select name="type">
+          <option value="stat">stat</option>
+          <option value="adherence">adherence</option>
+          <option value="plan-vs-actual">plan-vs-actual</option>
+        </select>
+        <input name="arg1" placeholder="arg1 (day|week|2026-03-01|...)">
+        <input name="arg2" placeholder="arg2 (optional)">
+        <button class="btn btn-primary" type="submit">Run</button>
+      </form>
+      <p class="muted">Use `arg1`/`arg2` the same way as CLI range args.</p>
+      <pre id="report-output" class="code-shell"></pre>
+      <p id="report-status" class="muted"></p>
+    </section>
+  </main>
+</div>
+<script>
+(() => {
+  const output = document.getElementById('report-output');
+  const status = document.getElementById('report-status');
+
+  function showStatus(message, isError) {
+    status.textContent = message;
+    status.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function requestJSON(url) {
+    const res = await fetch(url);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  document.getElementById('report-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const fd = new FormData(evt.target);
+    const type = (fd.get('type') || 'stat').toString();
+    const arg1 = (fd.get('arg1') || '').toString().trim();
+    const arg2 = (fd.get('arg2') || '').toString().trim();
+
+    let endpoint = '/api/reports/stat';
+    if (type === 'adherence') endpoint = '/api/reports/adherence';
+    if (type === 'plan-vs-actual') endpoint = '/api/reports/plan-vs-actual';
+
+    const params = new URLSearchParams();
+    if (arg1) params.set('arg1', arg1);
+    if (arg2) params.set('arg2', arg2);
+    try {
+      const data = await requestJSON(endpoint + '?' + params.toString());
+      output.textContent = data.rendered || JSON.stringify(data.report || data, null, 2);
+      showStatus('Report loaded.');
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+})();
+</script>
+</body>
+</html>
+{{end}}
