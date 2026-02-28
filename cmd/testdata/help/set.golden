@@ -1,0 +1,14 @@
+Deprecated alias for:
+  pomo config set <key> <value>
+
+Use these commands instead:
+  pomo config list
+  pomo config get <key>
+  pomo config describe [key]
+  pomo config set <key> <value>
+
+Usage:
+  pomo set <key> <value> [flags]
+
+Flags:
+  -h, --help   help for set

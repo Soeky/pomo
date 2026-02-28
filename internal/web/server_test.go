@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -97,6 +98,29 @@ func TestSQLPageWithoutDB(t *testing.T) {
 	}
 }
 
+func TestDashboardPageWithoutDBRendersShell(t *testing.T) {
+	t.Parallel()
+
+	s, err := NewServerWithDeps(ServerConfig{Host: "127.0.0.1", Port: 0}, ServerDeps{Store: storeAdapter{}, DB: nil})
+	if err != nil {
+		t.Fatalf("NewServerWithDeps failed: %v", err)
+	}
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: got=%d want=%d", rec.Code, http.StatusOK)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Loading") {
+		t.Fatalf("expected dashboard shell loading placeholders, got: %s", body)
+	}
+}
+
 func TestServerRunContextCancel(t *testing.T) {
 	s, err := NewServer(ServerConfig{Host: "127.0.0.1", Port: 0})
 	if err != nil {
@@ -107,6 +131,60 @@ func TestServerRunContextCancel(t *testing.T) {
 	cancel()
 	if err := s.Run(ctx); err != nil {
 		t.Fatalf("Run with canceled context failed: %v", err)
+	}
+}
+
+func TestWithRequestActivitySkipsHealthz(t *testing.T) {
+	t.Parallel()
+
+	var last atomic.Int64
+	now := time.Now()
+	last.Store(now.UnixNano())
+
+	h := withRequestActivity(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), &last)
+
+	reqHealth := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+	recHealth := httptest.NewRecorder()
+	h.ServeHTTP(recHealth, reqHealth)
+
+	if got := time.Unix(0, last.Load()); got.UnixNano() != now.UnixNano() {
+		t.Fatalf("healthz request should not update last activity: got=%v want=%v", got, now)
+	}
+
+	reqCalendar := httptest.NewRequest(http.MethodGet, "/calendar", nil)
+	recCalendar := httptest.NewRecorder()
+	h.ServeHTTP(recCalendar, reqCalendar)
+
+	if got := time.Unix(0, last.Load()); got.UnixNano() <= now.UnixNano() {
+		t.Fatalf("non-health request should update last activity: got=%v base=%v", got, now)
+	}
+}
+
+func TestMonitorAutoSleepCancelsContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var last atomic.Int64
+	last.Store(time.Now().Add(-2 * time.Second).UnixNano())
+
+	done := make(chan struct{})
+	go func() {
+		monitorAutoSleep(ctx, cancel, &last, 300*time.Millisecond)
+		close(done)
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(2 * time.Second):
+		t.Fatalf("expected auto-sleep monitor to cancel context")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatalf("auto-sleep monitor did not exit after cancel")
 	}
 }
 

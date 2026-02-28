@@ -13,30 +13,107 @@
     </div>
 
     <div class="page-header">
-      <h1 class="page-title">Calendar</h1>
-      <span class="badge">Balanced Week View</span>
+      <div>
+        <h1 class="page-title">Calendar</h1>
+        <p class="page-subtitle">Dense week planning with drag/resize editing for canonical events and recurring blocks.</p>
+      </div>
+      <span class="badge">Schedule Workspace</span>
     </div>
 
     <div class="calendar-layout">
-      <section id="calendar"></section>
-      <aside class="panel">
-        <h2>Create Planned Event</h2>
-        <form id="new-event" hx-post="/calendar/events" hx-swap="none">
-          <label for="title">Title</label>
-          <input id="title" name="title" required>
+      <section class="panel calendar-main">
+        <div class="calendar-legend" aria-label="Calendar legend">
+          <span class="legend-item"><span class="legend-swatch legend-focus"></span>Focus</span>
+          <span class="legend-item"><span class="legend-swatch legend-break"></span>Break</span>
+          <span class="legend-item"><span class="legend-swatch legend-planned"></span>Planned</span>
+          <span class="legend-item"><span class="legend-swatch legend-recurring"></span>Recurring</span>
+          <span class="legend-item"><span class="legend-swatch legend-scheduler"></span>Scheduler</span>
+        </div>
+        <section id="calendar"></section>
+      </section>
 
-          <label for="description">Description</label>
-          <textarea id="description" name="description"></textarea>
+      <aside class="panel calendar-side">
+        <section class="panel-block">
+          <h2>Create Planned Event</h2>
+          <form id="new-event" class="dense-form" hx-post="/calendar/events" hx-swap="none">
+            <label for="domain">Domain</label>
+            <input id="domain" name="domain" required>
 
-          <label for="start_time">Start</label>
-          <input id="start_time" type="datetime-local" name="start_time" required>
+            <label for="subtopic">Subtopic</label>
+            <input id="subtopic" name="subtopic" placeholder="General">
 
-          <label for="end_time">End</label>
-          <input id="end_time" type="datetime-local" name="end_time" required>
+            <label for="description">Description</label>
+            <textarea id="description" name="description"></textarea>
 
-          <button class="btn btn-primary" type="submit">Create Event</button>
-        </form>
-        <p id="event-status" class="muted"></p>
+            <div class="form-split">
+              <div>
+                <label for="start_time">Start</label>
+                <input id="start_time" type="datetime-local" name="start_time" required>
+              </div>
+              <div>
+                <label for="end_time">End</label>
+                <input id="end_time" type="datetime-local" name="end_time" required>
+              </div>
+            </div>
+
+            <button class="btn btn-primary" type="submit">Create Event</button>
+          </form>
+          <p id="event-status" class="muted"></p>
+        </section>
+
+        <section class="panel-block">
+          <h2>Recurring Rules</h2>
+          <form id="new-recur" class="dense-form">
+            <label for="recur_title">Title</label>
+            <input id="recur_title" name="title" required>
+
+            <div class="form-split">
+              <div>
+                <label for="recur_domain">Domain</label>
+                <input id="recur_domain" name="domain" required>
+              </div>
+              <div>
+                <label for="recur_subtopic">Subtopic</label>
+                <input id="recur_subtopic" name="subtopic" placeholder="General">
+              </div>
+            </div>
+
+            <div class="form-split">
+              <div>
+                <label for="recur_start">Start</label>
+                <input id="recur_start" type="datetime-local" name="start_time" required>
+              </div>
+              <div>
+                <label for="recur_duration">Duration (minutes)</label>
+                <input id="recur_duration" type="number" min="1" name="duration_minutes" value="60" required>
+              </div>
+            </div>
+
+            <div class="form-split">
+              <div>
+                <label for="recur_freq">Frequency</label>
+                <select id="recur_freq" name="freq">
+                  <option value="daily">daily</option>
+                  <option value="weekly" selected>weekly</option>
+                  <option value="monthly">monthly</option>
+                </select>
+              </div>
+              <div>
+                <label for="recur_interval">Interval</label>
+                <input id="recur_interval" type="number" min="1" name="interval" value="1">
+              </div>
+            </div>
+
+            <label for="recur_byday">By Day (MO,TU,...)</label>
+            <input id="recur_byday" name="byday" placeholder="MO,WE,FR">
+
+            <label for="recur_bymonthday">By Month Day</label>
+            <input id="recur_bymonthday" type="number" min="1" max="31" name="bymonthday">
+
+            <button class="btn btn-secondary" type="submit">Add Recurring Rule</button>
+          </form>
+          <div id="recur-list" class="recur-list muted">Loading recurring rules...</div>
+        </section>
       </aside>
     </div>
   </main>
@@ -48,16 +125,33 @@
     initialView: 'timeGridWeek',
     editable: true,
     selectable: true,
-    height: 'auto',
     nowIndicator: true,
+    allDaySlot: false,
+    slotDuration: '00:15:00',
+    snapDuration: '00:15:00',
+    slotLabelInterval: '01:00:00',
+    scrollTime: '08:00:00',
+    height: 'auto',
+    expandRows: true,
     dayHeaderFormat: { weekday: 'short', month: 'numeric', day: 'numeric' },
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'timeGridDay,timeGridWeek,dayGridMonth'
+    },
+    buttonText: {
+      today: 'Today',
+      timeGridDay: 'Day',
+      timeGridWeek: 'Week',
+      dayGridMonth: 'Month'
+    },
     events: '/calendar/events',
     select: async (info) => {
       const startInput = document.getElementById('start_time');
       const endInput = document.getElementById('end_time');
       startInput.value = info.startStr.slice(0, 16);
       endInput.value = info.endStr.slice(0, 16);
-      document.getElementById('title').focus();
+      document.getElementById('domain').focus();
     },
     eventDrop: async (info) => {
       await updateEvent(info.event);
@@ -66,7 +160,7 @@
       await updateEvent(info.event);
     },
     eventClick: async (info) => {
-      if (!confirm('Delete this event or session?')) return;
+      if (!confirm('Delete this event?')) return;
       const res = await fetch('/calendar/events/' + info.event.id, { method: 'DELETE' });
       if (res.ok) {
         info.event.remove();
@@ -102,7 +196,69 @@
     node.className = isError ? 'status-error' : 'muted';
   }
 
+  async function loadRecurrenceRules() {
+    const res = await fetch('/calendar/recurrence');
+    if (!res.ok) {
+      document.getElementById('recur-list').textContent = 'Failed to load recurring rules.';
+      return;
+    }
+    const rows = await res.json();
+    if (!rows.length) {
+      document.getElementById('recur-list').textContent = 'No recurring rules.';
+      return;
+    }
+    const html = rows.map((row) => {
+      const end = row.EndDate ? row.EndDate : '-';
+      return `
+        <div class="recur-row">
+          <div class="recur-meta">
+            <strong>#${row.ID}</strong> ${row.Title}<br>
+            <small>${row.Domain}::${row.Subtopic} | ${row.RRule} | start ${row.StartDate} | until ${end}</small>
+          </div>
+          <button class="btn btn-secondary" type="button" onclick="editRule(${row.ID}, '${escapeHtml(row.Title)}')">Edit</button>
+          <button class="btn btn-danger" type="button" onclick="deleteRule(${row.ID})">Delete</button>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('recur-list').innerHTML = html;
+  }
+
+  window.deleteRule = async function(id) {
+    if (!confirm('Delete recurring rule #' + id + '?')) return;
+    const res = await fetch('/calendar/recurrence/' + id, { method: 'DELETE' });
+    if (!res.ok) {
+      showStatus('Delete recurring rule failed.', true);
+      return;
+    }
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule deleted.');
+  };
+
+  window.editRule = async function(id, currentTitle) {
+    const nextTitle = prompt('New title for rule #' + id, currentTitle);
+    if (nextTitle === null) return;
+    const body = new URLSearchParams({ title: nextTitle });
+    const res = await fetch('/calendar/recurrence/' + id, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) {
+      showStatus('Edit recurring rule failed.', true);
+      return;
+    }
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule updated.');
+  };
+
+  function escapeHtml(v) {
+    return (v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   cal.render();
+  loadRecurrenceRules();
 
   document.getElementById('new-event').addEventListener('htmx:afterRequest', (evt) => {
     if (evt.detail.successful) {
@@ -112,6 +268,24 @@
       return;
     }
     showStatus('Create failed.', true);
+  });
+
+  document.getElementById('new-recur').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const body = new URLSearchParams(new FormData(evt.target));
+    const res = await fetch('/calendar/recurrence', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) {
+      showStatus('Create recurring rule failed.', true);
+      return;
+    }
+    evt.target.reset();
+    await loadRecurrenceRules();
+    cal.refetchEvents();
+    showStatus('Recurring rule created.');
   });
 })();
 </script>

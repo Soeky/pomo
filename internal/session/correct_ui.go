@@ -2,11 +2,13 @@ package session
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
 	"github.com/Soeky/pomo/internal/parse"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type CorrectRequest struct {
@@ -35,9 +37,13 @@ func ParseCorrectArgs(args []string) (CorrectRequest, error) {
 		return CorrectRequest{}, err
 	}
 
-	topic := "General"
-	if sessionType == "start" && len(args) > 2 {
-		topic = args[2]
+	topic := ""
+	if sessionType == "start" {
+		topicPath, err := topics.Parse(strings.Join(args[2:], " "))
+		if err != nil {
+			return CorrectRequest{}, err
+		}
+		topic = topicPath.Canonical()
 	}
 
 	return CorrectRequest{
@@ -65,18 +71,19 @@ func CorrectSession(now time.Time, req CorrectRequest) (CorrectResult, error) {
 	_ = db.StopCurrentSessionAt(startTime)
 
 	totalDuration := baseDuration + req.BackDuration
+	topic := req.Topic
+	if sType == "break" {
+		topic = ""
+	}
 
-	_, err := db.DB.Exec(`
-        INSERT INTO sessions (type, topic, start_time, duration)
-        VALUES (?, ?, ?, ?)
-    `, sType, req.Topic, startTime, int(totalDuration.Seconds()))
+	_, err := db.InsertSessionAt(sType, topic, startTime, totalDuration)
 	if err != nil {
 		return CorrectResult{}, err
 	}
 
 	return CorrectResult{
 		SessionType: sType,
-		Topic:       req.Topic,
+		Topic:       topic,
 		StartTime:   startTime,
 		Duration:    totalDuration,
 	}, nil

@@ -65,9 +65,27 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid end_time", http.StatusBadRequest)
 		return
 	}
+	sessionType := r.FormValue("type")
+	if sessionType != "focus" && sessionType != "break" {
+		http.Error(w, "type must be focus or break", http.StatusBadRequest)
+		return
+	}
+	topic := ""
+	if sessionType == "focus" {
+		parsed, err := parseTopicForm(r, "topic")
+		if err != nil {
+			http.Error(w, "invalid topic format", http.StatusBadRequest)
+			return
+		}
+		if parsed.Provided {
+			topic = parsed.Path.Canonical()
+		} else {
+			topic = "General::General"
+		}
+	}
 	_, err = s.store.CreateSession(r.Context(), store.Session{
-		Type:      r.FormValue("type"),
-		Topic:     r.FormValue("topic"),
+		Type:      sessionType,
+		Topic:     topic,
 		StartTime: start,
 		EndTime:   &end,
 	}, "web")
@@ -75,6 +93,7 @@ func (s *Server) createSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	w.Header().Set("HX-Trigger", "sessionsChanged")
 	w.WriteHeader(http.StatusCreated)
 }
 
@@ -112,16 +131,30 @@ func (s *Server) sessionByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "type must be focus or break", http.StatusBadRequest)
 			return
 		}
+		topic := ""
+		if sessionType == "focus" {
+			parsed, err := parseTopicForm(r, "topic")
+			if err != nil {
+				http.Error(w, "invalid topic format", http.StatusBadRequest)
+				return
+			}
+			if parsed.Provided {
+				topic = parsed.Path.Canonical()
+			} else {
+				topic = "General::General"
+			}
+		}
 		if err := s.store.UpdateSession(r.Context(), id, store.Session{
 			ID:        id,
 			Type:      sessionType,
-			Topic:     r.FormValue("topic"),
+			Topic:     topic,
 			StartTime: start,
 			EndTime:   &end,
 		}, "web"); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		w.Header().Set("HX-Trigger", "sessionsChanged")
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)

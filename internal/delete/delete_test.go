@@ -25,18 +25,9 @@ func TestGetRecentSessionsAndDeleteSessionByID(t *testing.T) {
 	defer opened.Close()
 
 	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
-	end := start.Add(25 * time.Minute)
-
-	res, err := opened.Exec(`
-		INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?)`,
-		"break", "", start, end, int((25 * time.Minute).Seconds()), start, end)
+	id, err := db.InsertSessionAt("break", "", start, 25*time.Minute)
 	if err != nil {
-		t.Fatalf("insert session failed: %v", err)
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		t.Fatalf("LastInsertId failed: %v", err)
+		t.Fatalf("insert tracked break event failed: %v", err)
 	}
 
 	items, err := getRecentSessions(10)
@@ -59,11 +50,8 @@ func TestModelQuitAndCountInput(t *testing.T) {
 	opened := openDeleteTestDB(t)
 	defer opened.Close()
 	now := time.Now().UTC()
-	if _, err := db.DB.Exec(`
-		INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "A", now.Add(-time.Hour), now.Add(-30*time.Minute), 1800, now, now); err != nil {
-		t.Fatalf("seed session failed: %v", err)
+	if _, err := db.InsertSessionAt("focus", "A", now.Add(-time.Hour), 30*time.Minute); err != nil {
+		t.Fatalf("seed tracked focus event failed: %v", err)
 	}
 
 	m := NewModel()

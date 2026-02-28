@@ -1,13 +1,13 @@
 package delete
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Soeky/pomo/internal/db"
+	"github.com/Soeky/pomo/internal/topics"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -189,8 +189,11 @@ func formatDuration(sec int) string {
 // getRecentSessions fetches recent sessions from DB
 func getRecentSessions(limit int) ([]item, error) {
 	rows, err := db.DB.Query(`
-		SELECT id, topic, start_time, end_time, duration
-		FROM sessions
+		SELECT id, kind, COALESCE(title, ''), COALESCE(domain, ''), COALESCE(subtopic, ''), start_time, end_time, COALESCE(duration, 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
 		ORDER BY start_time DESC
 		LIMIT ?`, limit)
 	if err != nil {
@@ -200,17 +203,12 @@ func getRecentSessions(limit int) ([]item, error) {
 	var items []item
 	for rows.Next() {
 		var it item
-		var durationSec sql.NullInt64
-		err := rows.Scan(&it.ID, &it.Topic, &it.StartTime, &it.EndTime, &durationSec)
+		var kind, title, domain, subtopic string
+		err := rows.Scan(&it.ID, &kind, &title, &domain, &subtopic, &it.StartTime, &it.EndTime, &it.Duration)
 		if err != nil {
 			continue
 		}
-		if it.Topic == "" {
-			it.Topic = "break"
-		}
-		if durationSec.Valid {
-			it.Duration = int(durationSec.Int64)
-		}
+		it.Topic = renderSessionTopic(kind, title, domain, subtopic)
 		items = append(items, it)
 	}
 	if err := rows.Err(); err != nil {
@@ -221,6 +219,25 @@ func getRecentSessions(limit int) ([]item, error) {
 
 // deleteSessionByID removes a session row by ID
 func deleteSessionByID(id int) error {
-	_, err := db.DB.Exec(`DELETE FROM sessions WHERE id = ?`, id)
+	_, err := db.DB.Exec(`
+		DELETE FROM events
+		WHERE id = ?
+		  AND source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
+	`, id)
 	return err
+}
+
+func renderSessionTopic(kind, title, domain, subtopic string) string {
+	if strings.EqualFold(strings.TrimSpace(kind), "break") {
+		return "break"
+	}
+	if parsed, err := topics.Parse(strings.TrimSpace(title)); err == nil {
+		return parsed.Canonical()
+	}
+	if parsed, err := topics.ParseParts(domain, subtopic); err == nil {
+		return parsed.Canonical()
+	}
+	return topics.Path{Domain: topics.DefaultDomain, Subtopic: topics.DefaultSubtopic}.Canonical()
 }

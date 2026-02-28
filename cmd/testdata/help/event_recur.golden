@@ -1,0 +1,22 @@
+Create and manage recurring rule templates, then expand them into concrete events.
+
+Examples:
+  pomo event recur add --title "Weekly Review" --start 2026-03-02T09:00 --duration 1h --freq weekly --byday MO,WE --domain Planning --subtopic General
+  pomo event recur list --active-only
+  pomo event recur edit 1 --interval 2 --title "Deep Review"
+  pomo event recur expand --from 2026-03-01T00:00 --to 2026-03-31T23:59
+
+Usage:
+  pomo event recur [command]
+
+Available Commands:
+  add         add a recurring rule
+  delete      delete a recurring rule
+  edit        edit a recurring rule
+  expand      generate recurring occurrences into events in a date window
+  list        list recurring rules
+
+Flags:
+  -h, --help   help for recur
+
+Use "pomo event recur [command] --help" for more information about a command.

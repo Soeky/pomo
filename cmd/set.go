@@ -10,10 +10,19 @@ import (
 
 var setCmd = &cobra.Command{
 	Use:   "set <key> <value>",
-	Short: "Set a config value (default_focus, default_break, semester_start)",
-	Long:  "Sets the entries of the default config file in ~/.config/pomo/config.json",
-	Args:  cobra.ExactArgs(2),
+	Short: "deprecated alias for `pomo config set`",
+	Long: `Deprecated alias for:
+  pomo config set <key> <value>
+
+Use these commands instead:
+  pomo config list
+  pomo config get <key>
+  pomo config describe [key]
+  pomo config set <key> <value>`,
+	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Println("⚠️ `pomo set` is deprecated and will be removed in a future major release.")
+		fmt.Println("   Use `pomo config set <key> <value>` (discover keys via `pomo config list` / `pomo config describe`).")
 		err := config.HandleSetCommand(args)
 		if err != nil {
 			fmt.Println("error in set cmd", err)

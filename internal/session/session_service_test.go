@@ -23,7 +23,7 @@ func TestStartFocusAndBreak(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartFocus failed: %v", err)
 	}
-	if resFocus.Topic != "ProjectX" {
+	if resFocus.Topic != "ProjectX::General" {
 		t.Fatalf("unexpected focus topic: %s", resFocus.Topic)
 	}
 	if resFocus.Duration != 25*time.Minute {
@@ -57,7 +57,7 @@ func TestStartFocusDurationParsingBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartFocus with duration failed: %v", err)
 	}
-	if resWithDuration.Duration != 15*time.Minute || resWithDuration.Topic != "TopicA" {
+	if resWithDuration.Duration != 15*time.Minute || resWithDuration.Topic != "TopicA::General" {
 		t.Fatalf("unexpected parsed start focus result: %+v", resWithDuration)
 	}
 
@@ -65,8 +65,42 @@ func TestStartFocusDurationParsingBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartFocus fallback failed: %v", err)
 	}
-	if resFallback.Duration != 30*time.Minute || resFallback.Topic != "TopicAsFirstArg" {
+	if resFallback.Duration != 30*time.Minute || resFallback.Topic != "TopicAsFirstArg::General" {
 		t.Fatalf("unexpected fallback start focus result: %+v", resFallback)
+	}
+}
+
+func TestStartFocusTopicHierarchy(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 25
+
+	res, err := StartFocus([]string{"Applied Mathematics::Numerical Analysis"})
+	if err != nil {
+		t.Fatalf("StartFocus failed: %v", err)
+	}
+	if res.Topic != "Applied Mathematics::Numerical Analysis" {
+		t.Fatalf("unexpected canonical topic: %s", res.Topic)
+	}
+}
+
+func TestStartFocusEscapedDelimiterTopic(t *testing.T) {
+	opened := openTestDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultFocus = 25
+
+	res, err := StartFocus([]string{`Math\::History::Week 1`})
+	if err != nil {
+		t.Fatalf("StartFocus failed: %v", err)
+	}
+	if res.Topic != `Math\::History::Week 1` {
+		t.Fatalf("unexpected escaped canonical topic: %s", res.Topic)
 	}
 }
 
@@ -109,9 +143,8 @@ func TestStopIfRunningAndFormatShortDuration(t *testing.T) {
 	}
 
 	start := time.Now().UTC().Add(-10 * time.Minute)
-	if _, err := db.DB.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		"focus", "X", start, 1500, start, start); err != nil {
-		t.Fatalf("seed session failed: %v", err)
+	if _, err := db.InsertSessionAt("focus", "X", start, 25*time.Minute); err != nil {
+		t.Fatalf("seed tracked event failed: %v", err)
 	}
 	if stopped, err := StopIfRunning(); err != nil || !stopped {
 		t.Fatalf("expected running session to be stopped, stopped=%v err=%v", stopped, err)

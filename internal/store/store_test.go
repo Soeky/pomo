@@ -33,7 +33,7 @@ func TestSessionAndPlannedEventCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSessionByID failed: %v", err)
 	}
-	if gotSession.Topic != "ProjectA" {
+	if gotSession.Topic != "ProjectA::General" {
 		t.Fatalf("unexpected topic: %s", gotSession.Topic)
 	}
 	if gotSession.DurationSec != int((25 * time.Minute).Seconds()) {
@@ -62,7 +62,7 @@ func TestSessionAndPlannedEventCRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSessionByID after update failed: %v", err)
 	}
-	if afterUpdate.Type != "break" || afterUpdate.Topic != "Updated" {
+	if afterUpdate.Type != "break" || afterUpdate.Topic != "" {
 		t.Fatalf("unexpected updated session: %+v", afterUpdate)
 	}
 

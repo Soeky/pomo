@@ -18,6 +18,45 @@
     </div>
 
     <section class="panel">
+      <h2>Create Session</h2>
+      <div class="panel-block">
+        <h3>Live Session Controls</h3>
+        <form id="focus-start-form" class="toolbar">
+          <input name="duration" placeholder="duration e.g. 50m">
+          <input name="domain" placeholder="Domain (e.g. Math)">
+          <input name="subtopic" placeholder="Subtopic (optional)">
+          <button class="btn btn-primary" type="submit">Start Focus</button>
+        </form>
+        <form id="break-start-form" class="toolbar">
+          <input name="duration" placeholder="duration e.g. 10m">
+          <button class="btn btn-secondary" type="submit">Start Break</button>
+          <button class="btn btn-danger" type="button" id="stop-session-btn">Stop</button>
+        </form>
+        <form id="correct-session-form" class="toolbar">
+          <select name="session_type">
+            <option value="start">start</option>
+            <option value="break">break</option>
+          </select>
+          <input name="back_duration" placeholder="back duration e.g. 15m" required>
+          <input name="domain" placeholder="Domain for start correction">
+          <input name="subtopic" placeholder="Subtopic (optional)">
+          <button class="btn btn-secondary" type="submit">Correct Session</button>
+        </form>
+        <p id="session-runtime-status" class="muted"></p>
+      </div>
+
+      <form class="toolbar" hx-post="/sessions/create" hx-swap="none">
+        <select name="type">
+          <option value="focus">focus</option>
+          <option value="break">break</option>
+        </select>
+        <input name="domain" placeholder="Domain (e.g. Math)">
+        <input name="subtopic" placeholder="Subtopic (optional)">
+        <input type="datetime-local" name="start_time" required>
+        <input type="datetime-local" name="end_time" required>
+        <button class="btn btn-primary" type="submit">Create</button>
+      </form>
+
       <form class="toolbar" hx-get="/sessions/table" hx-target="#session-table" hx-swap="innerHTML">
         <input name="q" placeholder="Filter by topic">
         <select name="type">
@@ -37,10 +76,104 @@
         <button class="btn btn-primary" type="submit">Apply</button>
       </form>
 
-      <div id="session-table" hx-get="/sessions/table" hx-trigger="load" hx-swap="innerHTML"></div>
+      <div id="session-table" hx-get="/sessions/table" hx-trigger="load, sessionsChanged from:body" hx-swap="innerHTML"></div>
     </section>
   </main>
 </div>
+<script>
+(() => {
+  const statusNode = document.getElementById('session-runtime-status');
+
+  function showStatus(message, isError) {
+    statusNode.textContent = message;
+    statusNode.className = isError ? 'status-error' : 'muted';
+  }
+
+  async function postJSON(url, payload) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'request failed');
+    return data;
+  }
+
+  async function refreshStatus() {
+    const res = await fetch('/api/sessions/status');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showStatus(data.error || 'status failed', true);
+      return;
+    }
+    if (!data.Active) {
+      showStatus('No active session.');
+      return;
+    }
+    showStatus(`${data.Emoji || ''} ${data.Formatted || ''}`);
+  }
+
+  document.getElementById('focus-start-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const form = new FormData(evt.target);
+    try {
+      await postJSON('/api/sessions/start', {
+        duration: (form.get('duration') || '').toString(),
+        domain: (form.get('domain') || '').toString(),
+        subtopic: (form.get('subtopic') || '').toString()
+      });
+      htmx.trigger(document.body, 'sessionsChanged');
+      await refreshStatus();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('break-start-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const form = new FormData(evt.target);
+    try {
+      await postJSON('/api/sessions/break', {
+        duration: (form.get('duration') || '').toString()
+      });
+      htmx.trigger(document.body, 'sessionsChanged');
+      await refreshStatus();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('correct-session-form').addEventListener('submit', async (evt) => {
+    evt.preventDefault();
+    const form = new FormData(evt.target);
+    try {
+      await postJSON('/api/sessions/correct', {
+        session_type: (form.get('session_type') || '').toString(),
+        back_duration: (form.get('back_duration') || '').toString(),
+        domain: (form.get('domain') || '').toString(),
+        subtopic: (form.get('subtopic') || '').toString()
+      });
+      htmx.trigger(document.body, 'sessionsChanged');
+      await refreshStatus();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  document.getElementById('stop-session-btn').addEventListener('click', async () => {
+    try {
+      await postJSON('/api/sessions/stop', {});
+      htmx.trigger(document.body, 'sessionsChanged');
+      await refreshStatus();
+    } catch (err) {
+      showStatus(err.message, true);
+    }
+  });
+
+  refreshStatus();
+})();
+</script>
 </body>
 </html>
 {{end}}

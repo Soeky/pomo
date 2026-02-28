@@ -20,11 +20,35 @@ func TestParseCorrectArgs(t *testing.T) {
 	if req.SessionType != "start" {
 		t.Fatalf("unexpected session type: %s", req.SessionType)
 	}
-	if req.Topic != "ProjectX" {
+	if req.Topic != "ProjectX::General" {
 		t.Fatalf("unexpected topic: %s", req.Topic)
 	}
 	if req.BackDuration != 15*time.Minute {
 		t.Fatalf("unexpected duration: %v", req.BackDuration)
+	}
+}
+
+func TestParseCorrectArgsWithMultiWordSubtopic(t *testing.T) {
+	t.Parallel()
+
+	req, err := ParseCorrectArgs([]string{"start", "15m", "Math::Discrete", "Probability"})
+	if err != nil {
+		t.Fatalf("ParseCorrectArgs failed: %v", err)
+	}
+	if req.Topic != "Math::Discrete Probability" {
+		t.Fatalf("unexpected topic: %s", req.Topic)
+	}
+}
+
+func TestParseCorrectArgsWithEscapedDelimiter(t *testing.T) {
+	t.Parallel()
+
+	req, err := ParseCorrectArgs([]string{"start", "15m", `Math\::History::Week 2`})
+	if err != nil {
+		t.Fatalf("ParseCorrectArgs failed: %v", err)
+	}
+	if req.Topic != `Math\::History::Week 2` {
+		t.Fatalf("unexpected escaped canonical topic: %s", req.Topic)
 	}
 }
 
@@ -71,7 +95,7 @@ func TestCorrectSessionCreatesSession(t *testing.T) {
 	res, err := CorrectSession(now, CorrectRequest{
 		SessionType:  "start",
 		BackDuration: 10 * time.Minute,
-		Topic:        "Retro",
+		Topic:        "Retro::General",
 	})
 	if err != nil {
 		t.Fatalf("CorrectSession failed: %v", err)
@@ -81,11 +105,40 @@ func TestCorrectSessionCreatesSession(t *testing.T) {
 	}
 
 	var count int
-	if err := opened.QueryRow(`SELECT COUNT(1) FROM sessions WHERE topic = ?`, "Retro").Scan(&count); err != nil {
-		t.Fatalf("count corrected sessions failed: %v", err)
+	if err := opened.QueryRow(`SELECT COUNT(1) FROM events WHERE source = 'tracked' AND kind = 'focus' AND title = ?`, "Retro::General").Scan(&count); err != nil {
+		t.Fatalf("count corrected tracked events failed: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("expected one corrected session, got %d", count)
+		t.Fatalf("expected one corrected tracked event, got %d", count)
+	}
+}
+
+func TestCorrectSessionBreakClearsTopic(t *testing.T) {
+	opened := openCorrectDB(t)
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.DefaultBreak = 5
+
+	now := time.Date(2026, 2, 25, 12, 0, 0, 0, time.UTC)
+	if _, err := CorrectSession(now, CorrectRequest{
+		SessionType:  "break",
+		BackDuration: 5 * time.Minute,
+		Topic:        "ShouldBeIgnored::General",
+	}); err != nil {
+		t.Fatalf("CorrectSession break failed: %v", err)
+	}
+
+	current, err := db.GetCurrentSession()
+	if err != nil {
+		t.Fatalf("GetCurrentSession failed: %v", err)
+	}
+	if current == nil {
+		t.Fatalf("expected running corrected break session")
+	}
+	if current.Topic != "" {
+		t.Fatalf("expected empty topic for break, got %q", current.Topic)
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Soeky/pomo/internal/config"
 )
 
 type WorkLine struct {
@@ -14,15 +16,19 @@ type WorkLine struct {
 }
 
 type StatsReport struct {
-	Label        string
-	Work         []WorkLine
-	BreakCount   int
-	BreakMinutes int
-	WorkTotalMin int
-	WorkAvgMin   float64
-	HasWorkAvg   bool
-	BreakAvgMin  float64
-	HasBreakAvg  bool
+	Label            string
+	Work             []WorkLine
+	TopDomains       []WorkLine
+	TopSubtopics     []WorkLine
+	BreakCount       int
+	BreakMinutes     int
+	WorkTotalMin     int
+	WorkEffectiveMin int
+	BreakCreditMin   int
+	WorkAvgMin       float64
+	HasWorkAvg       bool
+	BreakAvgMin      float64
+	HasBreakAvg      bool
 }
 
 func BuildReport(args []string, now time.Time) (StatsReport, error) {
@@ -32,15 +38,22 @@ func BuildReport(args []string, now time.Time) (StatsReport, error) {
 	if err != nil {
 		return StatsReport{}, err
 	}
+	effectiveTotals, err := QueryEffectiveFocusTotals(start, end, config.AppConfig.BreakCreditThresholdMinutes)
+	if err != nil {
+		return StatsReport{}, err
+	}
 	blocks, err := QuerySessionBlocks(start, end)
 	if err != nil {
 		return StatsReport{}, err
 	}
 
 	report := StatsReport{
-		Label:        label,
-		BreakCount:   breakStats.Count,
-		BreakMinutes: breakStats.TotalMinutes,
+		Label:            label,
+		BreakCount:       breakStats.Count,
+		BreakMinutes:     breakStats.TotalMinutes,
+		WorkTotalMin:     effectiveTotals.RawFocusMinutes,
+		WorkEffectiveMin: effectiveTotals.EffectiveFocusMinutes,
+		BreakCreditMin:   effectiveTotals.CreditedBreakMinutes,
 	}
 
 	workBlockCount := 0
@@ -65,7 +78,33 @@ func BuildReport(args []string, now time.Time) (StatsReport, error) {
 			Count:   e.Count,
 			Minutes: e.TotalMinutes,
 		})
-		report.WorkTotalMin += e.TotalMinutes
+	}
+
+	if len(args) == 1 && strings.EqualFold(strings.TrimSpace(args[0]), "sem") {
+		domains, subtopics, err := QueryTopicHierarchyStats(start, end)
+		if err != nil {
+			return StatsReport{}, err
+		}
+		for _, d := range domains {
+			report.TopDomains = append(report.TopDomains, WorkLine{
+				Topic:   d.Name,
+				Count:   d.Count,
+				Minutes: d.TotalMinutes,
+			})
+			if len(report.TopDomains) == 5 {
+				break
+			}
+		}
+		for _, s := range subtopics {
+			report.TopSubtopics = append(report.TopSubtopics, WorkLine{
+				Topic:   s.Name,
+				Count:   s.Count,
+				Minutes: s.TotalMinutes,
+			})
+			if len(report.TopSubtopics) == 5 {
+				break
+			}
+		}
 	}
 
 	if workBlockCount > 0 {
@@ -104,9 +143,27 @@ func RenderReport(report StatsReport) string {
 		b.WriteString("No breaks.\n")
 	}
 
+	if len(report.TopDomains) > 0 || len(report.TopSubtopics) > 0 {
+		b.WriteString("\n🧭 Hierarchy:\n")
+		if len(report.TopDomains) > 0 {
+			b.WriteString("Top domains:\n")
+			for _, line := range report.TopDomains {
+				fmt.Fprintf(&b, "- %-10s %2dx – %s h\n", line.Topic, line.Count, FormatMinutesToHM(line.Minutes))
+			}
+		}
+		if len(report.TopSubtopics) > 0 {
+			b.WriteString("Top subtopics:\n")
+			for _, line := range report.TopSubtopics {
+				fmt.Fprintf(&b, "- %-10s %2dx – %s h\n", line.Topic, line.Count, FormatMinutesToHM(line.Minutes))
+			}
+		}
+	}
+
 	b.WriteString("\n🧠 Total:\n")
-	fmt.Fprintf(&b, "Worktime:  %s h\n", FormatMinutesToHM(report.WorkTotalMin))
-	fmt.Fprintf(&b, "Breaktime: %s h\n\n", FormatMinutesToHM(report.BreakMinutes))
+	fmt.Fprintf(&b, "Worktime (raw):       %s h\n", FormatMinutesToHM(report.WorkTotalMin))
+	fmt.Fprintf(&b, "Worktime (effective): %s h\n", FormatMinutesToHM(report.WorkEffectiveMin))
+	fmt.Fprintf(&b, "Break credit:         %s h\n", FormatMinutesToHM(report.BreakCreditMin))
+	fmt.Fprintf(&b, "Breaktime (raw):      %s h\n\n", FormatMinutesToHM(report.BreakMinutes))
 	return b.String()
 }
 

@@ -1,0 +1,31 @@
+Run without subcommands to open the Bubble Tea scheduler review/apply screen.
+Subcommands remain available for non-interactive usage:
+  plan status
+  plan target add|list|delete|set-active
+  plan constraint show|set
+  plan generate
+
+Recommended scheduler workflow:
+  1) set targets
+     pomo plan target add --domain Math --subtopic Discrete --cadence weekly --hours 8
+  2) review/update constraints
+     pomo plan constraint set --weekdays mon,tue,wed,thu,fri --day-start 08:00 --day-end 22:00 --max-hours-day 8
+  3) preview generation
+     pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --dry-run
+  4) apply generation
+     pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --replace
+
+Usage:
+  pomo plan [flags]
+  pomo plan [command]
+
+Available Commands:
+  constraint  manage scheduler constraints
+  generate    run balanced scheduler generation for workload targets
+  status      show planned vs done counts in a date range
+  target      manage workload targets
+
+Flags:
+  -h, --help   help for plan
+
+Use "pomo plan [command] --help" for more information about a command.

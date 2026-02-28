@@ -4,7 +4,14 @@
   <nav>
     <a class="nav-link {{if eq .ActivePage "dashboard"}}active{{end}}" href="/">Dashboard</a>
     <a class="nav-link {{if eq .ActivePage "calendar"}}active{{end}}" href="/calendar">Calendar</a>
+    <a class="nav-link {{if eq .ActivePage "events"}}active{{end}}" href="/events">Events</a>
+    <a class="nav-link {{if eq .ActivePage "dependencies"}}active{{end}}" href="/dependencies">Dependencies</a>
+    <a class="nav-link {{if eq .ActivePage "planner"}}active{{end}}" href="/planner">Planner</a>
+    <a class="nav-link {{if eq .ActivePage "reports"}}active{{end}}" href="/reports">Reports</a>
+    <a class="nav-link {{if eq .ActivePage "config"}}active{{end}}" href="/config">Config</a>
     <a class="nav-link {{if eq .ActivePage "sessions"}}active{{end}}" href="/sessions">Sessions</a>
+    <a class="nav-link {{if eq .ActivePage "delete"}}active{{end}}" href="/delete">Delete</a>
+    <a class="nav-link {{if eq .ActivePage "workflow"}}active{{end}}" href="/workflow">Workflow</a>
     <a class="nav-link {{if eq .ActivePage "sql"}}active{{end}}" href="/sql">SQL Workspace</a>
   </nav>
   <div class="theme-box">

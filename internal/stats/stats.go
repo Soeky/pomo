@@ -3,10 +3,13 @@ package stats
 import (
 	"database/sql"
 	"fmt"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type FocusStat struct {
@@ -20,6 +23,12 @@ type BreakStat struct {
 	TotalMinutes int
 }
 
+type TopicGroupStat struct {
+	Name         string
+	Count        int
+	TotalMinutes int
+}
+
 type Session struct {
 	Type     string
 	Duration int
@@ -28,13 +37,24 @@ type Session struct {
 
 func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
 	rows, err := db.DB.Query(`
-        SELECT topic, COUNT(*), SUM(duration)
-        FROM sessions
-        WHERE type = 'focus' AND start_time BETWEEN ? AND ?
-        GROUP BY topic
-        ORDER BY SUM(duration) DESC
-        LIMIT 10
-    `, start, end)
+		SELECT
+			COALESCE(NULLIF(TRIM(title), ''),
+				CASE
+					WHEN TRIM(COALESCE(subtopic, '')) = '' THEN COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::General'
+					ELSE COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::' || subtopic
+				END
+			) AS topic,
+			COUNT(*),
+			COALESCE(SUM(duration), 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind = 'focus'
+		  AND start_time BETWEEN ? AND ?
+		GROUP BY topic
+		ORDER BY SUM(duration) DESC
+		LIMIT 10
+	`, start, end)
 	if err != nil {
 		return nil, BreakStat{}, err
 	}
@@ -60,10 +80,13 @@ func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
 
 	var breakStat BreakStat
 	row := db.DB.QueryRow(`
-        SELECT COUNT(*), SUM(duration)
-        FROM sessions
-        WHERE type = 'break' AND start_time BETWEEN ? AND ?
-    `, start, end)
+		SELECT COUNT(*), COALESCE(SUM(duration), 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind = 'break'
+		  AND start_time BETWEEN ? AND ?
+	`, start, end)
 	var durSec sql.NullInt64
 	if err := row.Scan(&breakStat.Count, &durSec); err != nil {
 		return nil, BreakStat{}, err
@@ -77,11 +100,14 @@ func QueryStats(start, end time.Time) ([]FocusStat, BreakStat, error) {
 
 func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 	rows, err := db.DB.Query(`
-        SELECT type, duration, start_time
-        FROM sessions
-        WHERE start_time BETWEEN ? AND ?
-        ORDER BY start_time ASC
-    `, start, end)
+		SELECT kind, COALESCE(duration, 0), start_time
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
+		  AND start_time BETWEEN ? AND ?
+		ORDER BY start_time ASC, id ASC
+	`, start, end)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +119,9 @@ func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 		var startTime time.Time
 		if err := rows.Scan(&s.Type, &s.Duration, &startTime); err != nil {
 			return nil, err
+		}
+		if s.Type != "break" {
+			s.Type = "focus"
 		}
 		s.Start = startTime
 		sessions = append(sessions, s)
@@ -118,6 +147,90 @@ func QuerySessionBlocks(start, end time.Time) ([]Session, error) {
 	}
 	blocks = append(blocks, curr)
 	return blocks, nil
+}
+
+func QueryTopicHierarchyStats(start, end time.Time) ([]TopicGroupStat, []TopicGroupStat, error) {
+	rows, err := db.DB.Query(`
+		SELECT
+			COALESCE(NULLIF(TRIM(domain), ''), 'General') AS domain,
+			COALESCE(NULLIF(TRIM(subtopic), ''), 'General') AS subtopic,
+			COUNT(*),
+			COALESCE(SUM(duration), 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind = 'focus'
+		  AND start_time BETWEEN ? AND ?
+		GROUP BY domain, subtopic
+	`, start, end)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+
+	domainAgg := map[string]*TopicGroupStat{}
+	subtopicAgg := map[string]*TopicGroupStat{}
+
+	for rows.Next() {
+		var rawDomain string
+		var rawSubtopic string
+		var count int
+		var durationSec int
+		if err := rows.Scan(&rawDomain, &rawSubtopic, &count, &durationSec); err != nil {
+			return nil, nil, err
+		}
+		minutes := durationSec / 60
+
+		path, err := topics.ParseParts(rawDomain, rawSubtopic)
+		if err != nil {
+			trimmed := strings.TrimSpace(rawDomain)
+			if trimmed == "" {
+				trimmed = topics.DefaultDomain
+			}
+			path = topics.Path{Domain: trimmed, Subtopic: topics.DefaultSubtopic}
+		}
+		if path.Subtopic == topics.DefaultSubtopic {
+			if parsed, parseErr := topics.Parse(rawDomain); parseErr == nil {
+				path = parsed
+			}
+		}
+
+		if _, ok := domainAgg[path.Domain]; !ok {
+			domainAgg[path.Domain] = &TopicGroupStat{Name: path.Domain}
+		}
+		domainAgg[path.Domain].Count += count
+		domainAgg[path.Domain].TotalMinutes += minutes
+
+		if _, ok := subtopicAgg[path.Subtopic]; !ok {
+			subtopicAgg[path.Subtopic] = &TopicGroupStat{Name: path.Subtopic}
+		}
+		subtopicAgg[path.Subtopic].Count += count
+		subtopicAgg[path.Subtopic].TotalMinutes += minutes
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+
+	domains := flattenTopicGroups(domainAgg)
+	subtopics := flattenTopicGroups(subtopicAgg)
+	return domains, subtopics, nil
+}
+
+func flattenTopicGroups(in map[string]*TopicGroupStat) []TopicGroupStat {
+	out := make([]TopicGroupStat, 0, len(in))
+	for _, s := range in {
+		out = append(out, *s)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].TotalMinutes != out[j].TotalMinutes {
+			return out[i].TotalMinutes > out[j].TotalMinutes
+		}
+		if out[i].Count != out[j].Count {
+			return out[i].Count > out[j].Count
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 func GetTimeRange(view string) (time.Time, time.Time) {

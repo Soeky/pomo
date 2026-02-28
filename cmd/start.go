@@ -9,10 +9,15 @@ import (
 )
 
 var startCmd = &cobra.Command{
-	Use:   "start [duration (optional)] [topic]",
+	Use:   "start [duration] [domain[::subtopic]]",
 	Short: "starts a work session",
-	Long:  "starts a work session with [topic]. If you exceed the duration you gave, it will just continue. The default duration can be set via pomo set.",
-	Args:  cobra.MaximumNArgs(2),
+	Long: `Starts a focus session. Topic format is domain::subtopic.
+Examples:
+  pomo start 50m Math::Discrete Probability
+  pomo start "Applied Mathematics::Numerical Analysis"
+  pomo start "Math"                      # stored as Math::General
+If duration is omitted, default_focus from config is used.`,
+	Args: cobra.ArbitraryArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		res, err := session.StartFocus(args)
 		if err != nil {

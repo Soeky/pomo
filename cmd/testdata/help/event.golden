@@ -1,0 +1,26 @@
+Run without subcommands to open the Bubble Tea event manager.
+Subcommands remain available for non-interactive usage:
+  event add|list
+  event recur add|list|edit|delete|expand
+  event dep add|list|delete|override
+
+Examples:
+  pomo event add --title "Math study block" --start 2026-03-01T10:00 --end 2026-03-01T11:30 --domain Math --subtopic Discrete
+  pomo event recur add --title "Weekly Review" --start 2026-03-02T09:00 --duration 1h --freq weekly --byday MO,WE --domain Planning --subtopic General
+  pomo event dep add 42 41 --required
+  pomo event dep override 42 --admin --reason "completed prerequisite outside pomo"
+
+Usage:
+  pomo event [flags]
+  pomo event [command]
+
+Available Commands:
+  add         add a single event
+  dep         manage event dependencies and blocking overrides
+  list        list events in a time range
+  recur       manage recurring rules
+
+Flags:
+  -h, --help   help for event
+
+Use "pomo event [command] --help" for more information about a command.

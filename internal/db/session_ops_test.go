@@ -19,9 +19,8 @@ func TestSessionLifecycleOperations(t *testing.T) {
 	defer func() { DB = prev }()
 
 	start := time.Now().Add(-10 * time.Minute).UTC()
-	if _, err := DB.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		"focus", "DeepWork", start, 1500, start, start); err != nil {
-		t.Fatalf("insert seed session: %v", err)
+	if _, err := InsertSessionAt("focus", "DeepWork", start, 25*time.Minute); err != nil {
+		t.Fatalf("insert seed tracked event: %v", err)
 	}
 
 	current, err := GetCurrentSession()
@@ -31,7 +30,7 @@ func TestSessionLifecycleOperations(t *testing.T) {
 	if current == nil {
 		t.Fatalf("expected running session")
 	}
-	if current.Topic != "DeepWork" {
+	if current.Topic != "DeepWork::General" {
 		t.Fatalf("unexpected topic: %s", current.Topic)
 	}
 
@@ -42,8 +41,8 @@ func TestSessionLifecycleOperations(t *testing.T) {
 
 	var gotDuration int
 	var gotEnd time.Time
-	if err := DB.QueryRow(`SELECT duration, end_time FROM sessions WHERE id = ?`, current.ID).Scan(&gotDuration, &gotEnd); err != nil {
-		t.Fatalf("read stopped session: %v", err)
+	if err := DB.QueryRow(`SELECT duration, end_time FROM events WHERE id = ?`, current.ID).Scan(&gotDuration, &gotEnd); err != nil {
+		t.Fatalf("read stopped event: %v", err)
 	}
 	if gotDuration != int((5 * time.Minute).Seconds()) {
 		t.Fatalf("unexpected duration: got=%d want=%d", gotDuration, int((5 * time.Minute).Seconds()))

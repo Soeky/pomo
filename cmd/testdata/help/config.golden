@@ -1,0 +1,32 @@
+Run without subcommands to open the Bubble Tea config wizard.
+Manage configuration values used by CLI, web, scheduler, and metrics.
+
+Commands:
+  pomo config list
+  pomo config get <key>
+  pomo config set <key> <value>
+  pomo config describe [key]
+
+Examples:
+  pomo config get default_focus
+  pomo config set default_focus 50
+  pomo config set break_credit_threshold_minutes 10
+  pomo config describe web_mode
+
+Compatibility:
+  pomo set <key> <value>   # deprecated alias; prints migration guidance
+
+Usage:
+  pomo config [flags]
+  pomo config [command]
+
+Available Commands:
+  describe    show key descriptions and examples
+  get         get one config value
+  list        list all config values
+  set         set one config value
+
+Flags:
+  -h, --help   help for config
+
+Use "pomo config [command] --help" for more information about a command.

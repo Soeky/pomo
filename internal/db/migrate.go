@@ -11,6 +11,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 //go:embed migrations/*.up.sql
@@ -140,10 +142,92 @@ func applyMigration(ctx context.Context, db *sql.DB, m migrationFile) error {
 			return err
 		}
 		return addColumnIfMissing(ctx, db, "sessions", "updated_at", "DATETIME")
+	case "008_unified_events_backfill_and_sync":
+		if err := addColumnIfMissing(ctx, db, "events", "timezone", "TEXT NOT NULL DEFAULT 'Local'"); err != nil {
+			return err
+		}
+		_, err := db.ExecContext(ctx, m.content)
+		return err
+	case "012_task5_scheduler_topic_backfill":
+		if err := addColumnIfMissing(ctx, db, "planned_events", "domain", "TEXT NOT NULL DEFAULT 'General'"); err != nil {
+			return err
+		}
+		if err := addColumnIfMissing(ctx, db, "planned_events", "subtopic", "TEXT NOT NULL DEFAULT 'General'"); err != nil {
+			return err
+		}
+		if err := reconcilePlannedEventsTopicColumns(ctx, db); err != nil {
+			return err
+		}
+		_, err := db.ExecContext(ctx, m.content)
+		return err
+	case "013_task6_dependency_blocking_hardening":
+		if err := addColumnIfMissing(ctx, db, "events", "blocked_reason", "TEXT"); err != nil {
+			return err
+		}
+		if err := addColumnIfMissing(ctx, db, "events", "blocked_override", "INTEGER NOT NULL DEFAULT 0"); err != nil {
+			return err
+		}
+		_, err := db.ExecContext(ctx, m.content)
+		return err
 	default:
 		_, err := db.ExecContext(ctx, m.content)
 		return err
 	}
+}
+
+func reconcilePlannedEventsTopicColumns(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, `SELECT id, title FROM planned_events`)
+	if err != nil {
+		return err
+	}
+
+	type topicRow struct {
+		id       int64
+		domain   string
+		subtopic string
+	}
+	updates := make([]topicRow, 0)
+	for rows.Next() {
+		var id int64
+		var title string
+		if err := rows.Scan(&id, &title); err != nil {
+			return err
+		}
+		path, err := topics.Parse(title)
+		if err != nil {
+			trimmed := strings.TrimSpace(title)
+			if trimmed == "" {
+				path = topics.Path{Domain: topics.DefaultDomain, Subtopic: topics.DefaultSubtopic}
+			} else {
+				path, err = topics.ParseParts(trimmed, topics.DefaultSubtopic)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		updates = append(updates, topicRow{id: id, domain: path.Domain, subtopic: path.Subtopic})
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	stmt, err := db.PrepareContext(ctx, `UPDATE planned_events SET domain = ?, subtopic = ? WHERE id = ?`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, row := range updates {
+		if _, err := stmt.ExecContext(ctx, row.domain, row.subtopic, row.id); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func addColumnIfMissing(ctx context.Context, db *sql.DB, tableName, columnName, columnType string) error {
