@@ -60,7 +60,7 @@
     <p class="muted">No focus sessions yet.</p>
   {{end}}
 {{else if eq .ID "planned_completion"}}
-  <div class="metric-grid metric-grid-2">
+  <div class="metric-grid metric-grid-3">
     <div class="metric-tile">
       <span class="metric-label">Planned Blocks</span>
       <strong class="metric-value">{{.Data.PlannedCount}}</strong>
@@ -68,6 +68,64 @@
     <div class="metric-tile">
       <span class="metric-label">Completed</span>
       <strong class="metric-value">{{.Data.DoneCount}}</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Completion</span>
+      <strong class="metric-value">{{printf "%.1f%%" .Data.Percent}}</strong>
+    </div>
+  </div>
+{{else if eq .ID "on_time_adherence"}}
+  <div class="metric-grid metric-grid-3">
+    <div class="metric-tile">
+      <span class="metric-label">Planned Blocks</span>
+      <strong class="metric-value">{{.Data.PlannedCount}}</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">On-time Starts</span>
+      <strong class="metric-value">{{.Data.OnTimeCount}}</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Adherence</span>
+      <strong class="metric-value">{{printf "%.1f%%" .Data.Percent}}</strong>
+      <div class="muted">±{{.Data.ToleranceMinutes}}m</div>
+    </div>
+  </div>
+{{else if eq .ID "drift_by_domain"}}
+  <div class="metric-grid metric-grid-3">
+    <div class="metric-tile">
+      <span class="metric-label">Planned</span>
+      <strong class="metric-value">{{.Data.ScheduledMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Actual</span>
+      <strong class="metric-value">{{.Data.ActualMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Total Drift</span>
+      <strong class="metric-value">{{.Data.DriftMinutes}}m</strong>
+    </div>
+  </div>
+  {{if .Data.Rows}}
+    <div class="topic-list">
+      {{range .Data.Rows}}
+        <div class="topic-row">
+          <span>{{.Domain}}</span>
+          <span>{{.ScheduledMinutes}}m / {{.ActualMinutes}}m ({{.DriftMinutes}}m)</span>
+        </div>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="muted">No planned or tracked focus rows in this window.</p>
+  {{end}}
+{{else if eq .ID "weekly_balance"}}
+  <div class="metric-grid metric-grid-2">
+    <div class="metric-tile">
+      <span class="metric-label">Balance Score</span>
+      <strong class="metric-value">{{printf "%.1f%%" .Data.ScorePercent}}</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Active Days</span>
+      <strong class="metric-value">{{.Data.ActiveDays}}</strong>
     </div>
   </div>
 {{else}}

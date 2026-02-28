@@ -104,6 +104,9 @@ This starts `ProjectX` at `now-15m` and closes the previous running session at t
 ```bash
 pomo stat
 pomo stat day|week|month|year|all|sem
+pomo stat adherence
+pomo stat plan-vs-actual
+pomo stat plan-vs-actual 2026-02-01 2026-02-25
 pomo stat 2026-02-25
 pomo stat 2026-02
 pomo stat 2026

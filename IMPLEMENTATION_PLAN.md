@@ -385,6 +385,21 @@ Acceptance:
 ## 11) `feature/11-dashboard-plan-vs-actual`
 Goal: planning accuracy and completion analytics.
 
+Status (2026-02-28): done
+- Added shared plan-vs-actual metrics engine in `internal/stats` and wired dashboard + CLI surfaces to the same calculations for parity.
+- Dashboard modules delivered:
+  - `on_time_adherence` (% planned blocks with same-domain focus session start within tolerance)
+  - `planned_completion` (% non-canceled planned blocks marked done)
+  - `drift_by_domain` (planned vs actual focus minutes by domain with signed drift)
+  - `weekly_balance` (daily planned-vs-actual alignment score across active days)
+- CLI stat extensions delivered:
+  - `pomo stat adherence [range]`
+  - `pomo stat plan-vs-actual [range]`
+- Added acceptance tests:
+  - seeded metric correctness tests for adherence/completion/drift/balance
+  - dashboard module tests for empty/partial/full datasets
+  - parity tests between dashboard module payloads and CLI/stat report metrics
+
 - Dashboard modules:
   - On-time adherence (% events started within tolerance)
   - Plan completion (% planned done)

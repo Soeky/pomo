@@ -258,10 +258,32 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Test coverage additions:
   - golden snapshots for key help outputs under `cmd/testdata/help/*.golden`.
   - integration-style CLI example validation tests execute documented examples in safe `--help` mode to ensure command/flag compatibility remains intact.
-- Documentation alignment:
-  - README now includes the workflow help entrypoint and example-driven scheduler/dependency command flow.
-- Ambiguity default used:
-  - `workflow` was implemented as a visible command (not hidden help-only topic) to keep discovery high while still satisfying `pomo help workflow`.
+
+## Task 11 Decisions and Caveats (Dashboard Plan-vs-Actual + CLI Stats Extensions)
+- Shared metrics engine:
+  - Added unified plan-vs-actual metric computation in `internal/stats` and reused it for dashboard modules and CLI (`pomo stat adherence`, `pomo stat plan-vs-actual`) to enforce numerical parity.
+- On-time adherence policy:
+  - denominator: non-canceled planned rows in the selected window from:
+    - legacy `planned_events`
+    - canonical `events` rows where `layer='planned'` and `legacy_source!='planned_events'`
+  - numerator: planned rows matched to same-domain focus sessions with start-time difference within tolerance.
+  - matching is one-to-one and time-ordered per domain (a focus session can satisfy at most one planned row).
+  - default tolerance is `±10 minutes` (`DefaultAdherenceToleranceMinutes`).
+- Plan completion policy:
+  - completion = `done / non-canceled planned` within window.
+  - canceled planned rows are excluded from both completion and adherence denominators.
+- Drift-by-domain policy:
+  - planned minutes source: merged legacy `planned_events` + canonical non-legacy planned `events`, grouped by normalized domain.
+  - actual minutes source: tracked focus sessions (`sessions.type='focus'`) aggregated by parsed topic domain.
+  - drift is signed: `actual - planned` minutes.
+- Weekly balance score policy:
+  - computed per active day (day has planned or actual minutes): `1 - |actual-planned|/max(actual,planned)`.
+  - weekly balance score is the average active-day score expressed as percent.
+- Range defaults for new CLI surfaces:
+  - `pomo stat adherence` and `pomo stat plan-vs-actual` default to current week when no range is provided.
+  - explicit ranges reuse existing `pomo stat` date/timeframe parsing semantics.
+- Ambiguity defaults used:
+  - because Task 11 did not define tolerance or balance formula, default tolerance `10m` and daily alignment average were selected and documented above.
 
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.

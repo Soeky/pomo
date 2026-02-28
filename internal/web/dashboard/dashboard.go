@@ -36,7 +36,10 @@ func NewRegistry(q Querier) *Registry {
 	r := &Registry{modules: map[string]Module{}}
 	r.Register(totalsModule{q: q})
 	r.Register(topTopicsModule{q: q})
+	r.Register(onTimeAdherenceModule{q: q})
 	r.Register(completionModule{q: q})
+	r.Register(driftByDomainModule{q: q})
+	r.Register(weeklyBalanceModule{q: q})
 	r.Register(upcomingScheduleModule{q: q})
 	return r
 }
@@ -204,26 +207,116 @@ type completionModule struct {
 type CompletionData struct {
 	PlannedCount int
 	DoneCount    int
+	Percent      float64
 }
 
 func (completionModule) ID() string    { return "planned_completion" }
-func (completionModule) Title() string { return "Planned Completion" }
+func (completionModule) Title() string { return "Plan Completion" }
 func (m completionModule) Load(ctx context.Context, start, end time.Time) (any, error) {
 	if m.q == nil {
 		return nil, fmt.Errorf("dashboard database is not initialized")
 	}
 
-	var planned int
-	if err := m.q.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM planned_events WHERE start_time BETWEEN ? AND ?`, start, end).Scan(&planned); err != nil {
+	metrics, err := stats.QueryPlanVsActualMetricsWithQuerier(ctx, m.q, start, end, stats.DefaultAdherenceToleranceMinutes)
+	if err != nil {
 		return nil, err
 	}
-	var done int
-	if err := m.q.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM planned_events WHERE status = 'done' AND start_time BETWEEN ? AND ?`, start, end).Scan(&done); err != nil {
+	return CompletionData{
+		PlannedCount: metrics.PlanCompletion.PlannedCount,
+		DoneCount:    metrics.PlanCompletion.DoneCount,
+		Percent:      metrics.PlanCompletion.Percent,
+	}, nil
+}
+
+type adherenceData struct {
+	PlannedCount     int
+	OnTimeCount      int
+	Percent          float64
+	ToleranceMinutes int
+}
+
+type onTimeAdherenceModule struct {
+	q Querier
+}
+
+func (onTimeAdherenceModule) ID() string    { return "on_time_adherence" }
+func (onTimeAdherenceModule) Title() string { return "On-time Adherence" }
+func (m onTimeAdherenceModule) Load(ctx context.Context, start, end time.Time) (any, error) {
+	if m.q == nil {
+		return nil, fmt.Errorf("dashboard database is not initialized")
+	}
+
+	metrics, err := stats.QueryPlanVsActualMetricsWithQuerier(ctx, m.q, start, end, stats.DefaultAdherenceToleranceMinutes)
+	if err != nil {
 		return nil, err
 	}
-	return CompletionData{PlannedCount: planned, DoneCount: done}, nil
+	return adherenceData{
+		PlannedCount:     metrics.OnTimeAdherence.PlannedCount,
+		OnTimeCount:      metrics.OnTimeAdherence.OnTimeCount,
+		Percent:          metrics.OnTimeAdherence.Percent,
+		ToleranceMinutes: metrics.OnTimeAdherence.ToleranceMinutes,
+	}, nil
+}
+
+type driftByDomainModule struct {
+	q Querier
+}
+
+type driftByDomainData struct {
+	Rows             []stats.DomainDriftRow
+	ScheduledMinutes int
+	ActualMinutes    int
+	DriftMinutes     int
+}
+
+func (driftByDomainModule) ID() string    { return "drift_by_domain" }
+func (driftByDomainModule) Title() string { return "Drift by Domain" }
+func (m driftByDomainModule) Load(ctx context.Context, start, end time.Time) (any, error) {
+	if m.q == nil {
+		return nil, fmt.Errorf("dashboard database is not initialized")
+	}
+
+	metrics, err := stats.QueryPlanVsActualMetricsWithQuerier(ctx, m.q, start, end, stats.DefaultAdherenceToleranceMinutes)
+	if err != nil {
+		return nil, err
+	}
+
+	rows := metrics.DriftByDomain
+	if len(rows) > 5 {
+		rows = rows[:5]
+	}
+	return driftByDomainData{
+		Rows:             rows,
+		ScheduledMinutes: metrics.ScheduledMinutes,
+		ActualMinutes:    metrics.ActualMinutes,
+		DriftMinutes:     metrics.DriftMinutes,
+	}, nil
+}
+
+type weeklyBalanceModule struct {
+	q Querier
+}
+
+type weeklyBalanceData struct {
+	ScorePercent float64
+	ActiveDays   int
+}
+
+func (weeklyBalanceModule) ID() string    { return "weekly_balance" }
+func (weeklyBalanceModule) Title() string { return "Weekly Balance Score" }
+func (m weeklyBalanceModule) Load(ctx context.Context, start, end time.Time) (any, error) {
+	if m.q == nil {
+		return nil, fmt.Errorf("dashboard database is not initialized")
+	}
+
+	metrics, err := stats.QueryPlanVsActualMetricsWithQuerier(ctx, m.q, start, end, stats.DefaultAdherenceToleranceMinutes)
+	if err != nil {
+		return nil, err
+	}
+	return weeklyBalanceData{
+		ScorePercent: metrics.WeeklyBalance.ScorePercent,
+		ActiveDays:   metrics.WeeklyBalance.ActiveDays,
+	}, nil
 }
 
 type upcomingScheduleModule struct {

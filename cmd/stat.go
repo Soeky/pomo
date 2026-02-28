@@ -26,6 +26,10 @@ var statCmd = &cobra.Command{
 		prints the stats of the current year
 	pomo stat sem:
 		prints the stats of the current semester. Semester start can be set with: pomo config set semester_start YYYY-MM-DD
+	pomo stat adherence [range]:
+		prints on-time adherence metrics for the current week by default
+	pomo stat plan-vs-actual [range]:
+		prints plan-vs-actual metrics and drift by domain for the current week by default
 	`,
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -38,6 +42,36 @@ var statCmd = &cobra.Command{
 	},
 }
 
+var statAdherenceCmd = &cobra.Command{
+	Use:   "adherence [range]",
+	Short: "show on-time adherence for planned events",
+	Args:  cobra.MaximumNArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		report, err := stats.BuildAdherenceReport(args, time.Now())
+		if err != nil {
+			fmt.Println("error at adherence statistics:", err)
+			os.Exit(1)
+		}
+		fmt.Print(stats.RenderAdherenceReport(report))
+	},
+}
+
+var statPlanVsActualCmd = &cobra.Command{
+	Use:   "plan-vs-actual [range]",
+	Short: "show plan-vs-actual adherence, completion, drift, and balance metrics",
+	Args:  cobra.MaximumNArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		report, err := stats.BuildPlanVsActualReport(args, time.Now())
+		if err != nil {
+			fmt.Println("error at plan-vs-actual statistics:", err)
+			os.Exit(1)
+		}
+		fmt.Print(stats.RenderPlanVsActualReport(report))
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(statCmd)
+	statCmd.AddCommand(statAdherenceCmd)
+	statCmd.AddCommand(statPlanVsActualCmd)
 }
