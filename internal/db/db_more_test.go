@@ -47,7 +47,7 @@ func TestInsertSessionAndGetCurrentSession(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCurrentSession failed: %v", err)
 	}
-	if s == nil || s.Topic != "Topic1" {
+	if s == nil || s.Topic != "Topic1::General" {
 		t.Fatalf("unexpected current session: %+v", s)
 	}
 }
@@ -89,9 +89,8 @@ func TestStopCurrentSessionSuccess(t *testing.T) {
 	defer func() { DB = prev }()
 
 	start := time.Now().UTC().Add(-2 * time.Minute)
-	if _, err := DB.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		"focus", "stop-me", start, 600, start, start); err != nil {
-		t.Fatalf("seed session failed: %v", err)
+	if _, err := InsertSessionAt("focus", "stop-me", start, 10*time.Minute); err != nil {
+		t.Fatalf("seed tracked event failed: %v", err)
 	}
 	if err := StopCurrentSession(); err != nil {
 		t.Fatalf("StopCurrentSession failed: %v", err)

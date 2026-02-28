@@ -32,7 +32,7 @@ func parseAnyTime(v string) (time.Time, error) {
 func parsePrefixedID(id string) (string, int, error) {
 	parts := strings.SplitN(id, "-", 2)
 	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("id must be prefixed like p-1, s-2, or e-3")
+		return "", 0, fmt.Errorf("id must be prefixed like e-3 (legacy s-/p- forms are deprecated compatibility aliases)")
 	}
 	if parts[0] != "p" && parts[0] != "s" && parts[0] != "e" {
 		return "", 0, fmt.Errorf("unsupported id prefix")

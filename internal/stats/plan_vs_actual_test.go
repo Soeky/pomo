@@ -137,28 +137,28 @@ func TestRenderPlanVsActualAndAdherenceReports(t *testing.T) {
 func seedPlanVsActualFixture(t *testing.T, opened *sql.DB, base time.Time) {
 	t.Helper()
 
-	mustExecStats(t, opened, `INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"Math::Algebra", "Math", "Algebra", "", base.Add(9*time.Hour), base.Add(10*time.Hour), "done", "manual", base, base)
-	mustExecStats(t, opened, `INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"Math::Geometry", "Math", "Geometry", "", base.AddDate(0, 0, 1).Add(9*time.Hour), base.AddDate(0, 0, 1).Add(10*time.Hour), "planned", "manual", base, base)
-	mustExecStats(t, opened, `INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"Science::Lab", "Science", "Lab", "", base.AddDate(0, 0, 2).Add(14*time.Hour), base.AddDate(0, 0, 2).Add(15*time.Hour+30*time.Minute), "done", "manual", base, base)
-	mustExecStats(t, opened, `INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"Ops::Admin", "Ops", "Admin", "", base.AddDate(0, 0, 3).Add(10*time.Hour), base.AddDate(0, 0, 3).Add(10*time.Hour+30*time.Minute), "canceled", "manual", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", "Math::Algebra", "Math", "Algebra", "", base.Add(9*time.Hour), base.Add(10*time.Hour), int((60 * time.Minute).Seconds()), "planned", "done", "manual", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", "Math::Geometry", "Math", "Geometry", "", base.AddDate(0, 0, 1).Add(9*time.Hour), base.AddDate(0, 0, 1).Add(10*time.Hour), int((60 * time.Minute).Seconds()), "planned", "planned", "manual", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", "Science::Lab", "Science", "Lab", "", base.AddDate(0, 0, 2).Add(14*time.Hour), base.AddDate(0, 0, 2).Add(15*time.Hour+30*time.Minute), int((90 * time.Minute).Seconds()), "planned", "done", "manual", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", "Ops::Admin", "Ops", "Admin", "", base.AddDate(0, 0, 3).Add(10*time.Hour), base.AddDate(0, 0, 3).Add(10*time.Hour+30*time.Minute), int((30 * time.Minute).Seconds()), "planned", "canceled", "manual", base, base)
 
-	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "Math::Algebra", base.Add(9*time.Hour+5*time.Minute), base.Add(10*time.Hour+5*time.Minute), int((60 * time.Minute).Seconds()), base, base)
-	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "Math::Geometry", base.AddDate(0, 0, 1).Add(9*time.Hour+20*time.Minute), base.AddDate(0, 0, 1).Add(9*time.Hour+50*time.Minute), int((30 * time.Minute).Seconds()), base, base)
-	mustExecStats(t, opened, `INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "Science::Lab", base.AddDate(0, 0, 2).Add(13*time.Hour+55*time.Minute), base.AddDate(0, 0, 2).Add(15*time.Hour+25*time.Minute), int((90 * time.Minute).Seconds()), base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::Algebra", "Math", "Algebra", base.Add(9*time.Hour+5*time.Minute), base.Add(10*time.Hour+5*time.Minute), int((60 * time.Minute).Seconds()), "done", "done", "tracked", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::Geometry", "Math", "Geometry", base.AddDate(0, 0, 1).Add(9*time.Hour+20*time.Minute), base.AddDate(0, 0, 1).Add(9*time.Hour+50*time.Minute), int((30 * time.Minute).Seconds()), "done", "done", "tracked", base, base)
+	mustExecStats(t, opened, `INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Science::Lab", "Science", "Lab", base.AddDate(0, 0, 2).Add(13*time.Hour+55*time.Minute), base.AddDate(0, 0, 2).Add(15*time.Hour+25*time.Minute), int((90 * time.Minute).Seconds()), "done", "done", "tracked", base, base)
 }
 
 func approxFloat(left, right, epsilon float64) bool {

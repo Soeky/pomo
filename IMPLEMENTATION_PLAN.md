@@ -422,9 +422,17 @@ Acceptance:
 ## 12) `feature/12-cutover-cleanup-and-deprecation`
 Goal: complete migration and remove temporary compatibility layers.
 
-Status (2026-02-28): in progress
-- Added explicit major-upgrade cutover routine (`FinalizeV2Cutover`) that performs one-time legacy reconciliation and then disables legacy sync triggers.
-- Added `pomo upgrade` / `pomo update` command path to run migrations, cutover finalization, and CLI self-update (`go install ...@version`).
+Status (2026-02-28): done
+- Completed runtime cutover so primary reads/writes now use canonical `events` for:
+  - session lifecycle (`start`/`break`/`stop`/`status`/`correct`)
+  - store adapters and web session/calendar CRUD
+  - stats + dashboard metrics/reporting queries
+- Calendar API now emits canonical `e-<id>` entries as primary IDs and treats legacy `s-`/`p-` IDs as deprecated compatibility lookups.
+- Added migration/version notes with release checklist + rollback guidance in `docs/migrations/task12_cutover.md`.
+- Added Task 12 migration safety validation (`internal/db/migrate_task12_test.go`) covering:
+  - legacy fixture -> latest migration -> finalization parity
+  - post-cutover canonical writes not mutating legacy tables
+  - end-to-end range reads via canonical store adapters.
 
 - Switch primary reads/writes fully to unified `events`.
 - Deprecate old direct-table assumptions.

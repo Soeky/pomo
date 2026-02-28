@@ -331,44 +331,7 @@ type focusMetricRow struct {
 }
 
 func queryPlannedRows(ctx context.Context, q PlanVsActualQuerier, start, end time.Time) ([]plannedMetricRow, error) {
-	// Include legacy planned rows directly for compatibility, then add canonical-only planned rows.
-	legacyRows, err := q.QueryContext(ctx, `
-		SELECT
-			COALESCE(NULLIF(TRIM(domain), ''), '') AS domain,
-			COALESCE(NULLIF(TRIM(title), ''), 'General') AS title,
-			start_time,
-			end_time,
-			COALESCE(status, 'planned') AS status
-		FROM planned_events
-		WHERE start_time >= ?
-		  AND start_time < ?
-		  AND COALESCE(status, 'planned') != 'canceled'
-		ORDER BY start_time ASC, id ASC`, start, end)
-	if err != nil {
-		return nil, err
-	}
-	defer legacyRows.Close()
-
-	out := make([]plannedMetricRow, 0)
-	for legacyRows.Next() {
-		var row plannedMetricRow
-		var title string
-		var endTime time.Time
-		if err := legacyRows.Scan(&row.Domain, &title, &row.Start, &endTime, &row.Status); err != nil {
-			return nil, err
-		}
-		row.DurationSec = int(endTime.Sub(row.Start).Seconds())
-		if row.DurationSec < 0 {
-			row.DurationSec = 0
-		}
-		row.Domain = plannedDomain(row.Domain, title)
-		out = append(out, row)
-	}
-	if err := legacyRows.Err(); err != nil {
-		return nil, err
-	}
-
-	canonicalRows, err := q.QueryContext(ctx, `
+	rows, err := q.QueryContext(ctx, `
 		SELECT
 			COALESCE(NULLIF(TRIM(domain), ''), 'General') AS domain,
 			COALESCE(NULLIF(TRIM(title), ''), 'General') AS title,
@@ -380,17 +343,17 @@ func queryPlannedRows(ctx context.Context, q PlanVsActualQuerier, start, end tim
 		  AND start_time >= ?
 		  AND start_time < ?
 		  AND COALESCE(status, 'planned') != 'canceled'
-		  AND COALESCE(legacy_source, '') != 'planned_events'
 		ORDER BY start_time ASC, id ASC`, start, end)
 	if err != nil {
 		return nil, err
 	}
-	defer canonicalRows.Close()
+	defer rows.Close()
 
-	for canonicalRows.Next() {
+	out := make([]plannedMetricRow, 0)
+	for rows.Next() {
 		var row plannedMetricRow
 		var title string
-		if err := canonicalRows.Scan(&row.Domain, &title, &row.Start, &row.DurationSec, &row.Status); err != nil {
+		if err := rows.Scan(&row.Domain, &title, &row.Start, &row.DurationSec, &row.Status); err != nil {
 			return nil, err
 		}
 		if row.DurationSec < 0 {
@@ -399,7 +362,7 @@ func queryPlannedRows(ctx context.Context, q PlanVsActualQuerier, start, end tim
 		row.Domain = plannedDomain(row.Domain, title)
 		out = append(out, row)
 	}
-	if err := canonicalRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
@@ -418,9 +381,11 @@ func queryPlannedRows(ctx context.Context, q PlanVsActualQuerier, start, end tim
 
 func queryFocusRows(ctx context.Context, q PlanVsActualQuerier, start, end time.Time) ([]focusMetricRow, error) {
 	rows, err := q.QueryContext(ctx, `
-		SELECT COALESCE(topic, ''), start_time, COALESCE(duration, 0)
-		FROM sessions
-		WHERE type = 'focus'
+		SELECT COALESCE(NULLIF(TRIM(domain), ''), COALESCE(NULLIF(TRIM(title), ''), 'General')), start_time, COALESCE(duration, 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind = 'focus'
 		  AND start_time >= ?
 		  AND start_time < ?
 		ORDER BY start_time ASC, id ASC`, start, end)

@@ -18,6 +18,11 @@ During migration:
 - new writes can target `events`.
 - migration backfills legacy rows into `events` with `legacy_source` and `legacy_id`.
 
+Post-cutover (Task 12):
+- primary runtime reads/writes use `events`.
+- legacy sync triggers are removed by one-time v2 finalization (`FinalizeV2Cutover`).
+- legacy ID assumptions are deprecated in calendar APIs; canonical IDs are `e-<id>`.
+
 ## Scheduler Inputs
 
 Scheduler should consume:

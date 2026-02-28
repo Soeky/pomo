@@ -86,9 +86,20 @@ func queryEffectiveSessions(q interface {
 	Query(query string, args ...any) (*sql.Rows, error)
 }, start, end time.Time) ([]EffectiveSession, error) {
 	rows, err := q.Query(`
-		SELECT type, COALESCE(topic, ''), COALESCE(duration, 0)
-		FROM sessions
-		WHERE start_time BETWEEN ? AND ?
+		SELECT
+			kind,
+			COALESCE(NULLIF(TRIM(title), ''),
+				CASE
+					WHEN TRIM(COALESCE(subtopic, '')) = '' THEN COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::General'
+					ELSE COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::' || subtopic
+				END
+			) AS topic,
+			COALESCE(duration, 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
+		  AND start_time BETWEEN ? AND ?
 		ORDER BY start_time ASC, id ASC
 	`, start, end)
 	if err != nil {

@@ -143,9 +143,8 @@ func TestStopIfRunningAndFormatShortDuration(t *testing.T) {
 	}
 
 	start := time.Now().UTC().Add(-10 * time.Minute)
-	if _, err := db.DB.Exec(`INSERT INTO sessions(type, topic, start_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		"focus", "X", start, 1500, start, start); err != nil {
-		t.Fatalf("seed session failed: %v", err)
+	if _, err := db.InsertSessionAt("focus", "X", start, 25*time.Minute); err != nil {
+		t.Fatalf("seed tracked event failed: %v", err)
 	}
 	if stopped, err := StopIfRunning(); err != nil || !stopped {
 		t.Fatalf("expected running session to be stopped, stopped=%v err=%v", stopped, err)

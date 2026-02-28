@@ -49,8 +49,6 @@ func openTUITestDB(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatalf("db.Open failed: %v", err)
 	}
-	prev := db.DB
 	db.DB = opened
-	t.Cleanup(func() { db.DB = prev })
 	return opened
 }

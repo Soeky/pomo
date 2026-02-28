@@ -115,17 +115,31 @@ func (m totalsModule) Load(ctx context.Context, start, end time.Time) (any, erro
 
 	if err := m.q.QueryRowContext(ctx, `
 		SELECT COUNT(*),
-		COALESCE(SUM(CASE WHEN type='focus' THEN duration END), 0),
-		COALESCE(SUM(CASE WHEN type='break' THEN duration END), 0)
-		FROM sessions
-		WHERE start_time BETWEEN ? AND ?`, start, end).Scan(&count, &focusSec, &breakSec); err != nil {
+		COALESCE(SUM(CASE WHEN kind='focus' THEN duration END), 0),
+		COALESCE(SUM(CASE WHEN kind='break' THEN duration END), 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
+		  AND start_time BETWEEN ? AND ?`, start, end).Scan(&count, &focusSec, &breakSec); err != nil {
 		return nil, err
 	}
 
 	rows, err := m.q.QueryContext(ctx, `
-		SELECT type, COALESCE(topic, ''), COALESCE(duration, 0)
-		FROM sessions
-		WHERE start_time BETWEEN ? AND ?
+		SELECT
+			kind,
+			COALESCE(NULLIF(TRIM(title), ''),
+				CASE
+					WHEN TRIM(COALESCE(subtopic, '')) = '' THEN COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::General'
+					ELSE COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::' || subtopic
+				END
+			) AS topic,
+			COALESCE(duration, 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind IN ('focus', 'break')
+		  AND start_time BETWEEN ? AND ?
 		ORDER BY start_time ASC, id ASC`, start, end)
 	if err != nil {
 		return nil, err
@@ -137,6 +151,9 @@ func (m totalsModule) Load(ctx context.Context, start, end time.Time) (any, erro
 		var entry stats.EffectiveSession
 		if err := rows.Scan(&entry.Type, &entry.Topic, &entry.DurationSeconds); err != nil {
 			return nil, err
+		}
+		if entry.Type != "break" {
+			entry.Type = "focus"
 		}
 		entries = append(entries, entry)
 	}
@@ -173,9 +190,20 @@ func (m topTopicsModule) Load(ctx context.Context, start, end time.Time) (any, e
 	}
 
 	rows, err := m.q.QueryContext(ctx, `
-		SELECT COALESCE(topic, 'General') as topic, COUNT(*), COALESCE(SUM(duration), 0)
-		FROM sessions
-		WHERE type = 'focus' AND start_time BETWEEN ? AND ?
+		SELECT
+			COALESCE(NULLIF(TRIM(title), ''),
+				CASE
+					WHEN TRIM(COALESCE(subtopic, '')) = '' THEN COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::General'
+					ELSE COALESCE(NULLIF(TRIM(domain), ''), 'General') || '::' || subtopic
+				END
+			) AS topic,
+			COUNT(*),
+			COALESCE(SUM(duration), 0)
+		FROM events
+		WHERE source = 'tracked'
+		  AND layer = 'done'
+		  AND kind = 'focus'
+		  AND start_time BETWEEN ? AND ?
 		GROUP BY topic
 		ORDER BY SUM(duration) DESC
 		LIMIT 5`, start, end)
@@ -353,11 +381,12 @@ func (m upcomingScheduleModule) Load(ctx context.Context, start, end time.Time) 
 				ELSE domain || '::' || subtopic
 			END AS topic,
 			substr(COALESCE(start_time, ''), 1, 16) AS start_label,
-			COALESCE(CAST((julianday(end_time) - julianday(start_time)) * 24 * 60 AS INTEGER), 0) AS duration_minutes,
+			COALESCE(CAST(duration / 60 AS INTEGER), 0) AS duration_minutes,
 			COALESCE(status, 'planned'),
 			COALESCE(source, 'manual')
-		FROM planned_events
+		FROM events
 		WHERE start_time BETWEEN ? AND ?
+		  AND layer = 'planned'
 		  AND COALESCE(status, 'planned') != 'canceled'
 		ORDER BY start_time ASC
 		LIMIT 6`, start, end)

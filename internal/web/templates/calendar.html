@@ -15,7 +15,7 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Calendar</h1>
-        <p class="page-subtitle">Dense week planning with drag/resize editing for sessions, planned events, and recurring blocks.</p>
+        <p class="page-subtitle">Dense week planning with drag/resize editing for canonical events and recurring blocks.</p>
       </div>
       <span class="badge">Schedule Workspace</span>
     </div>
@@ -160,7 +160,7 @@
       await updateEvent(info.event);
     },
     eventClick: async (info) => {
-      if (!confirm('Delete this event or session?')) return;
+      if (!confirm('Delete this event?')) return;
       const res = await fetch('/calendar/events/' + info.event.id, { method: 'DELETE' });
       if (res.ok) {
         info.event.remove();

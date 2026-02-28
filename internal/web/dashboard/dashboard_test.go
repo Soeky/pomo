@@ -79,18 +79,13 @@ func TestTotalsModuleIncludesEffectiveFocus(t *testing.T) {
 	config.AppConfig.BreakCreditThresholdMinutes = 10
 
 	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
-	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "Math::A", start, start.Add(25*time.Minute), int((25 * time.Minute).Seconds()), start, start); err != nil {
-		t.Fatalf("insert focus #1 failed: %v", err)
-	}
-	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"break", "", start.Add(25*time.Minute), start.Add(35*time.Minute), int((10 * time.Minute).Seconds()), start, start); err != nil {
+	insertSession(t, opened, "Math::A", start, 25*time.Minute)
+	if _, err := opened.Exec(`INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"break", "Break", "Break", "General", start.Add(25*time.Minute), start.Add(35*time.Minute), int((10 * time.Minute).Seconds()), "done", "done", "tracked", start, start); err != nil {
 		t.Fatalf("insert break failed: %v", err)
 	}
-	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "Math::B", start.Add(35*time.Minute), start.Add(60*time.Minute), int((25 * time.Minute).Seconds()), start, start); err != nil {
-		t.Fatalf("insert focus #2 failed: %v", err)
-	}
+	insertSession(t, opened, "Math::B", start.Add(35*time.Minute), 25*time.Minute)
 
 	r := NewRegistry(opened)
 	module, ok := r.ByID("totals")
@@ -362,12 +357,14 @@ func mustLoadModule(r *Registry, id string, start, end time.Time) (any, error) {
 }
 
 func seedDashboardData(opened *sql.DB, start, end time.Time) error {
-	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", "A", start, end, int((25 * time.Minute).Seconds()), start, start); err != nil {
+	if _, err := opened.Exec(`INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "A", "A", "General", start, end, int((25 * time.Minute).Seconds()), "done", "done", "tracked", start, start); err != nil {
 		return err
 	}
-	if _, err := opened.Exec(`INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		"P1", "P1", "General", "d", start, end, "done", "manual", start, start); err != nil {
+	if _, err := opened.Exec(`INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", "P1", "P1", "General", "d", start, end, int(end.Sub(start).Seconds()), "planned", "done", "manual", start, start); err != nil {
 		return err
 	}
 	return nil
@@ -396,20 +393,20 @@ func seedPlanVsActualFullData(t *testing.T, opened *sql.DB, base time.Time) {
 func insertPlannedEvent(t *testing.T, opened *sql.DB, title, domain, subtopic string, start time.Time, duration time.Duration, status string) {
 	t.Helper()
 	end := start.Add(duration)
-	if _, err := opened.Exec(`INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		title, domain, subtopic, "", start, end, status, "manual", start, start); err != nil {
-		t.Fatalf("insert planned event failed: %v", err)
+	if _, err := opened.Exec(`INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"task", title, domain, subtopic, "", start, end, int(duration.Seconds()), "planned", status, "manual", start, start); err != nil {
+		t.Fatalf("insert canonical planned event failed: %v", err)
 	}
 }
 
 func insertSession(t *testing.T, opened *sql.DB, topic string, start time.Time, duration time.Duration) {
 	t.Helper()
 	end := start.Add(duration)
-	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		"focus", topic, start, end, int(duration.Seconds()), start, start); err != nil {
-		t.Fatalf("insert session failed: %v", err)
+	if _, err := opened.Exec(`INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"focus", topic, topic, "General", start, end, int(duration.Seconds()), "done", "done", "tracked", start, start); err != nil {
+		t.Fatalf("insert tracked focus event failed: %v", err)
 	}
 }
 

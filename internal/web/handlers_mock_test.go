@@ -167,26 +167,26 @@ func TestCalendarHandlersErrorBranches(t *testing.T) {
 	reqPatchPlanned.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	recPatchPlanned := httptest.NewRecorder()
 	mux.ServeHTTP(recPatchPlanned, reqPatchPlanned)
-	if recPatchPlanned.Code != http.StatusNotFound {
-		t.Fatalf("expected planned not found 404, got %d", recPatchPlanned.Code)
+	if recPatchPlanned.Code != http.StatusBadRequest {
+		t.Fatalf("expected planned legacy-id 400, got %d", recPatchPlanned.Code)
 	}
 
 	reqPatchSession := httptest.NewRequest(http.MethodPatch, "/calendar/events/s-1", strings.NewReader(patch.Encode()))
 	reqPatchSession.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	recPatchSession := httptest.NewRecorder()
 	mux.ServeHTTP(recPatchSession, reqPatchSession)
-	if recPatchSession.Code != http.StatusNotFound {
-		t.Fatalf("expected session not found 404, got %d", recPatchSession.Code)
+	if recPatchSession.Code != http.StatusBadRequest {
+		t.Fatalf("expected session legacy-id 400, got %d", recPatchSession.Code)
 	}
 
 	recDeletePlanned := httptest.NewRecorder()
 	mux.ServeHTTP(recDeletePlanned, httptest.NewRequest(http.MethodDelete, "/calendar/events/p-1", nil))
-	if recDeletePlanned.Code != http.StatusInternalServerError {
-		t.Fatalf("expected delete planned 500, got %d", recDeletePlanned.Code)
+	if recDeletePlanned.Code != http.StatusBadRequest {
+		t.Fatalf("expected delete planned legacy-id 400, got %d", recDeletePlanned.Code)
 	}
 	recDeleteSession := httptest.NewRecorder()
 	mux.ServeHTTP(recDeleteSession, httptest.NewRequest(http.MethodDelete, "/calendar/events/s-1", nil))
-	if recDeleteSession.Code != http.StatusInternalServerError {
-		t.Fatalf("expected delete session 500, got %d", recDeleteSession.Code)
+	if recDeleteSession.Code != http.StatusBadRequest {
+		t.Fatalf("expected delete session legacy-id 400, got %d", recDeleteSession.Code)
 	}
 }

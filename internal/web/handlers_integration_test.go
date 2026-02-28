@@ -119,8 +119,8 @@ func TestCreateSessionWithSplitTopicFields(t *testing.T) {
 	}
 
 	var topic string
-	if err := opened.QueryRow(`SELECT topic FROM sessions ORDER BY id DESC LIMIT 1`).Scan(&topic); err != nil {
-		t.Fatalf("query created split-topic session failed: %v", err)
+	if err := opened.QueryRow(`SELECT title FROM events WHERE source = 'tracked' AND kind = 'focus' ORDER BY id DESC LIMIT 1`).Scan(&topic); err != nil {
+		t.Fatalf("query created split-topic event failed: %v", err)
 	}
 	if topic != "Math::Discrete Probability" {
 		t.Fatalf("unexpected canonical split-topic value: %s", topic)
@@ -166,12 +166,12 @@ func TestSessionPatchAndDelete(t *testing.T) {
 		t.Fatalf("unexpected patch status: got=%d want=%d", patchRec.Code, http.StatusNoContent)
 	}
 
-	var gotType, gotTopic string
-	if err := opened.QueryRow(`SELECT type, topic FROM sessions WHERE id = ?`, id).Scan(&gotType, &gotTopic); err != nil {
-		t.Fatalf("query patched session: %v", err)
+	var gotKind, gotTitle string
+	if err := opened.QueryRow(`SELECT kind, title FROM events WHERE id = ?`, id).Scan(&gotKind, &gotTitle); err != nil {
+		t.Fatalf("query patched event: %v", err)
 	}
-	if gotType != "break" || gotTopic != "" {
-		t.Fatalf("unexpected patched values: type=%s topic=%s", gotType, gotTopic)
+	if gotKind != "break" || gotTitle != "Break" {
+		t.Fatalf("unexpected patched values: kind=%s title=%s", gotKind, gotTitle)
 	}
 
 	delReq := httptest.NewRequest(http.MethodDelete, "/sessions/"+id, nil)
@@ -353,8 +353,8 @@ func TestCalendarPlannedEventCreatePatchDelete(t *testing.T) {
 	}
 
 	var plannedID int
-	if err := opened.QueryRow(`SELECT id FROM planned_events WHERE title = ?`, "Study Block").Scan(&plannedID); err != nil {
-		t.Fatalf("query planned event id: %v", err)
+	if err := opened.QueryRow(`SELECT id FROM events WHERE layer = 'planned' AND source = 'manual' AND title = ?`, "Study Block").Scan(&plannedID); err != nil {
+		t.Fatalf("query canonical planned event id: %v", err)
 	}
 
 	patchForm := url.Values{
@@ -362,7 +362,7 @@ func TestCalendarPlannedEventCreatePatchDelete(t *testing.T) {
 		"start_time": {"2026-02-25T11:15"},
 		"end_time":   {"2026-02-25T12:15"},
 	}
-	patchReq := httptest.NewRequest(http.MethodPatch, "/calendar/events/p-"+strconv.Itoa(plannedID), strings.NewReader(patchForm.Encode()))
+	patchReq := httptest.NewRequest(http.MethodPatch, "/calendar/events/e-"+strconv.Itoa(plannedID), strings.NewReader(patchForm.Encode()))
 	patchReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	patchRec := httptest.NewRecorder()
 	mux.ServeHTTP(patchRec, patchReq)
@@ -371,14 +371,14 @@ func TestCalendarPlannedEventCreatePatchDelete(t *testing.T) {
 	}
 
 	var title string
-	if err := opened.QueryRow(`SELECT title FROM planned_events WHERE id = ?`, plannedID).Scan(&title); err != nil {
-		t.Fatalf("query patched planned: %v", err)
+	if err := opened.QueryRow(`SELECT title FROM events WHERE id = ?`, plannedID).Scan(&title); err != nil {
+		t.Fatalf("query patched canonical planned event: %v", err)
 	}
 	if title != "Updated Study" {
 		t.Fatalf("unexpected planned title: %s", title)
 	}
 
-	delReq := httptest.NewRequest(http.MethodDelete, "/calendar/events/p-"+strconv.Itoa(plannedID), nil)
+	delReq := httptest.NewRequest(http.MethodDelete, "/calendar/events/e-"+strconv.Itoa(plannedID), nil)
 	delRec := httptest.NewRecorder()
 	mux.ServeHTTP(delRec, delReq)
 	if delRec.Code != http.StatusNoContent {
@@ -410,8 +410,8 @@ func TestCalendarPlannedEventCreateWithSplitTopicFields(t *testing.T) {
 	}
 
 	var title string
-	if err := opened.QueryRow(`SELECT title FROM planned_events ORDER BY id DESC LIMIT 1`).Scan(&title); err != nil {
-		t.Fatalf("query split-topic planned title failed: %v", err)
+	if err := opened.QueryRow(`SELECT title FROM events WHERE layer = 'planned' ORDER BY id DESC LIMIT 1`).Scan(&title); err != nil {
+		t.Fatalf("query split-topic canonical planned title failed: %v", err)
 	}
 	if title != "Physics::Quantum Mechanics" {
 		t.Fatalf("unexpected split-topic planned title: %s", title)
@@ -441,8 +441,8 @@ func TestCalendarPlannedEventCreateWithCombinedTopicField(t *testing.T) {
 	}
 
 	var title string
-	if err := opened.QueryRow(`SELECT title FROM planned_events ORDER BY id DESC LIMIT 1`).Scan(&title); err != nil {
-		t.Fatalf("query combined-topic planned title failed: %v", err)
+	if err := opened.QueryRow(`SELECT title FROM events WHERE layer = 'planned' ORDER BY id DESC LIMIT 1`).Scan(&title); err != nil {
+		t.Fatalf("query combined-topic canonical planned title failed: %v", err)
 	}
 	if title != "Chemistry::Organic" {
 		t.Fatalf("unexpected combined-topic planned title: %s", title)
@@ -530,12 +530,20 @@ func TestCalendarEventsMixedSources(t *testing.T) {
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 
-	_ = insertSession(t, opened, "focus", "ProjectX::General", "2026-03-02T10:00:00Z", "2026-03-02T10:25:00Z")
-	if _, err := opened.Exec(`
-		INSERT INTO planned_events(title, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		"Plan Item", "desc", "2026-03-02T11:00:00Z", "2026-03-02T12:00:00Z", "planned", "manual", "2026-03-02T11:00:00Z", "2026-03-02T11:00:00Z"); err != nil {
-		t.Fatalf("insert planned event failed: %v", err)
+	sessionID := insertSession(t, opened, "focus", "ProjectX::General", "2026-03-02T10:00:00Z", "2026-03-02T10:25:00Z")
+	planID, err := events.Create(context.Background(), events.Event{
+		Kind:      "task",
+		Title:     "Plan Item",
+		Domain:    "Plan",
+		Subtopic:  "General",
+		StartTime: time.Date(2026, 3, 2, 11, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 3, 2, 12, 0, 0, 0, time.UTC),
+		Layer:     "planned",
+		Status:    "planned",
+		Source:    "manual",
+	})
+	if err != nil {
+		t.Fatalf("create canonical planned event failed: %v", err)
 	}
 
 	manualID, err := events.Create(context.Background(), events.Event{
@@ -583,10 +591,10 @@ func TestCalendarEventsMixedSources(t *testing.T) {
 	}
 	foundSession, foundPlanned, foundCanonical, foundRecurring := false, false, false, false
 	for _, row := range rows {
-		if strings.HasPrefix(row.ID, "s-") {
+		if row.ID == "e-"+sessionID {
 			foundSession = true
 		}
-		if strings.HasPrefix(row.ID, "p-") {
+		if row.ID == "e-"+strconv.FormatInt(planID, 10) {
 			foundPlanned = true
 		}
 		if row.ID == "e-"+strconv.FormatInt(manualID, 10) {
@@ -749,7 +757,7 @@ func TestCalendarEventByIDMethodNotAllowed(t *testing.T) {
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/calendar/events/p-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/calendar/events/e-1", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusMethodNotAllowed {
@@ -809,11 +817,17 @@ func insertSession(t *testing.T, opened *sql.DB, typ, topic, start, end string) 
 	t.Helper()
 
 	res, err := opened.Exec(`
-		INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?)`,
-		typ, topic, start, end, 1500, start, end)
+		INSERT INTO events(kind, title, domain, subtopic, start_time, end_time, duration, layer, status, source, created_at, updated_at)
+		VALUES(
+			CASE WHEN ? = 'break' THEN 'break' ELSE 'focus' END,
+			CASE WHEN ? = 'break' THEN 'Break' ELSE ? END,
+			CASE WHEN ? = 'break' THEN 'Break' ELSE ? END,
+			'General',
+			?, ?, ?, 'done', 'done', 'tracked', ?, ?
+		)`,
+		typ, typ, topic, typ, topic, start, end, 1500, start, end)
 	if err != nil {
-		t.Fatalf("insert session: %v", err)
+		t.Fatalf("insert tracked event: %v", err)
 	}
 	id, err := res.LastInsertId()
 	if err != nil {

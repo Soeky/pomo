@@ -189,6 +189,11 @@ Default `pomo upgrade` behavior:
 - runs one-time v2 cutover finalization (legacy backfill reconciliation + disables legacy sync triggers)
 - self-updates CLI using `go install github.com/Soeky/pomo@<version>`
 
+Cutover notes:
+- runtime reads/writes are canonical `events` after Task 12 cutover.
+- legacy compatibility IDs in calendar APIs (`s-<id>`, `p-<id>`) are deprecated; use `e-<id>`.
+- release checklist + rollback notes: `docs/migrations/task12_cutover.md`.
+
 For self-update, `go` must be available in your `PATH`.
 
 ### Web UI

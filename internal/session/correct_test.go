@@ -105,11 +105,11 @@ func TestCorrectSessionCreatesSession(t *testing.T) {
 	}
 
 	var count int
-	if err := opened.QueryRow(`SELECT COUNT(1) FROM sessions WHERE topic = ?`, "Retro::General").Scan(&count); err != nil {
-		t.Fatalf("count corrected sessions failed: %v", err)
+	if err := opened.QueryRow(`SELECT COUNT(1) FROM events WHERE source = 'tracked' AND kind = 'focus' AND title = ?`, "Retro::General").Scan(&count); err != nil {
+		t.Fatalf("count corrected tracked events failed: %v", err)
 	}
 	if count != 1 {
-		t.Fatalf("expected one corrected session, got %d", count)
+		t.Fatalf("expected one corrected tracked event, got %d", count)
 	}
 }
 
@@ -130,12 +130,15 @@ func TestCorrectSessionBreakClearsTopic(t *testing.T) {
 		t.Fatalf("CorrectSession break failed: %v", err)
 	}
 
-	var topic string
-	if err := opened.QueryRow(`SELECT COALESCE(topic, '') FROM sessions ORDER BY id DESC LIMIT 1`).Scan(&topic); err != nil {
-		t.Fatalf("read corrected break failed: %v", err)
+	current, err := db.GetCurrentSession()
+	if err != nil {
+		t.Fatalf("GetCurrentSession failed: %v", err)
 	}
-	if topic != "" {
-		t.Fatalf("expected empty topic for break, got %q", topic)
+	if current == nil {
+		t.Fatalf("expected running corrected break session")
+	}
+	if current.Topic != "" {
+		t.Fatalf("expected empty topic for break, got %q", current.Topic)
 	}
 }
 

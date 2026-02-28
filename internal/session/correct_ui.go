@@ -76,10 +76,7 @@ func CorrectSession(now time.Time, req CorrectRequest) (CorrectResult, error) {
 		topic = ""
 	}
 
-	_, err := db.DB.Exec(`
-        INSERT INTO sessions (type, topic, start_time, duration)
-        VALUES (?, ?, ?, ?)
-    `, sType, topic, startTime, int(totalDuration.Seconds()))
+	_, err := db.InsertSessionAt(sType, topic, startTime, totalDuration)
 	if err != nil {
 		return CorrectResult{}, err
 	}

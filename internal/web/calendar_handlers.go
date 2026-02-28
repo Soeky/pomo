@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -42,67 +44,29 @@ func (s *Server) calendarEvents(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		from := parseTimeOrDefault(r.URL.Query().Get("start"), time.Now().AddDate(0, -1, 0))
 		to := parseTimeOrDefault(r.URL.Query().Get("end"), time.Now().AddDate(0, 1, 0))
-		sessions, err := s.store.SessionsInRange(r.Context(), from, to)
-		if err != nil {
+		if s.sqlDB == nil {
+			http.Error(w, "database is not initialized", http.StatusInternalServerError)
+			return
+		}
+		if _, err := events.GenerateRecurringEventsInWindow(r.Context(), from, to, 0); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		plans, err := s.store.PlannedEventsInRange(r.Context(), from, to)
+		canonicalEvents, err := events.ListInRange(r.Context(), from, to)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		canonicalEvents := []events.Event{}
-		if s.sqlDB != nil {
-			if _, err := events.GenerateRecurringEventsInWindow(r.Context(), from, to, 0); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			canonicalEvents, err = events.ListCanonicalInRange(r.Context(), from, to)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-
-		eventsOut := make([]calendarEvent, 0, len(sessions)+len(plans)+len(canonicalEvents))
-		for _, sess := range sessions {
-			end := sess.StartTime.Add(time.Duration(sess.DurationSec) * time.Second)
-			if sess.EndTime != nil {
-				end = *sess.EndTime
-			}
-			title := sess.Topic
-			if title == "" {
-				title = "break"
-			}
-			color := "#2f855a"
-			if sess.Type == "break" {
-				color = "#718096"
-			}
-			eventsOut = append(eventsOut, calendarEvent{
-				ID:       fmt.Sprintf("s-%d", sess.ID),
-				Title:    title,
-				Start:    sess.StartTime.Format(time.RFC3339),
-				End:      end.Format(time.RFC3339),
-				Color:    color,
-				Status:   "done",
-				Editable: true,
-			})
-		}
-		for _, p := range plans {
-			eventsOut = append(eventsOut, calendarEvent{
-				ID:       fmt.Sprintf("p-%d", p.ID),
-				Title:    p.Title,
-				Start:    p.StartTime.Format(time.RFC3339),
-				End:      p.EndTime.Format(time.RFC3339),
-				Color:    "#2b6cb0",
-				Status:   p.Status,
-				Editable: true,
-			})
-		}
+		eventsOut := make([]calendarEvent, 0, len(canonicalEvents))
 		for _, e := range canonicalEvents {
 			color := "#1a365d"
+			switch e.Kind {
+			case "focus":
+				color = "#2f855a"
+			case "break":
+				color = "#718096"
+			}
 			switch e.Source {
 			case "recurring":
 				color = "#975a16"
@@ -185,6 +149,22 @@ func (s *Server) calendarEventByID(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	eventID, err := s.resolveCalendarEventID(r.Context(), kind, numericID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "event not found (legacy s-/p- ids are deprecated; use e-<id>)", http.StatusGone)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if kind != "e" {
+		w.Header().Set("Warning", `299 - "legacy calendar IDs (s-/p-) are deprecated; use e-<id>"`)
+	}
+	if s.sqlDB == nil {
+		http.Error(w, "database is not initialized", http.StatusInternalServerError)
+		return
+	}
 
 	switch r.Method {
 	case http.MethodPatch:
@@ -202,104 +182,71 @@ func (s *Server) calendarEventByID(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "invalid end_time", http.StatusBadRequest)
 			return
 		}
-		if kind == "p" {
-			existing, err := s.store.GetPlannedEventByID(r.Context(), numericID)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
-				return
-			}
-
-			parsedTopic, err := parseTopicForm(r, "topic", "title")
-			if err != nil {
-				http.Error(w, "invalid topic format", http.StatusBadRequest)
-				return
-			}
-			if parsedTopic.Provided {
-				existing.Title = normalizePlannedTitle(r.FormValue("title"), parsedTopic)
-			}
-			existing.StartTime = start
-			existing.EndTime = end
-			if err := s.store.UpdatePlannedEvent(r.Context(), numericID, existing, "web"); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-		if kind == "e" {
-			if s.sqlDB == nil {
-				http.Error(w, "database is not initialized", http.StatusInternalServerError)
-				return
-			}
-			existing, err := events.GetByID(r.Context(), int64(numericID))
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusNotFound)
-				return
-			}
-			existing.StartTime = start
-			existing.EndTime = end
-			title := strings.TrimSpace(r.FormValue("title"))
-			if title != "" {
-				existing.Title = title
-			}
-			if err := events.Update(r.Context(), int64(numericID), existing); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		existing, err := s.store.GetSessionByID(r.Context(), numericID)
+		existing, err := events.GetByID(r.Context(), eventID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return
 		}
 		existing.StartTime = start
-		existing.EndTime = &end
-		if existing.Type == "focus" {
-			parsedTopic, err := parseTopicForm(r, "title", "topic")
-			if err != nil {
-				http.Error(w, "invalid topic format", http.StatusBadRequest)
-				return
-			}
-			if parsedTopic.Provided {
-				existing.Topic = parsedTopic.Path.Canonical()
+		existing.EndTime = end
+		title := strings.TrimSpace(r.FormValue("title"))
+		if title != "" {
+			existing.Title = title
+		}
+		if parsedTopic, err := parseTopicForm(r, "topic", "domain"); err != nil {
+			http.Error(w, "invalid topic format", http.StatusBadRequest)
+			return
+		} else if parsedTopic.Provided && !strings.EqualFold(existing.Kind, "break") {
+			existing.Domain = parsedTopic.Path.Domain
+			existing.Subtopic = parsedTopic.Path.Subtopic
+			if strings.TrimSpace(title) == "" {
+				existing.Title = parsedTopic.Path.Canonical()
 			}
 		}
-		if existing.Type == "break" {
-			existing.Topic = ""
-		}
-		if err := s.store.UpdateSession(r.Context(), numericID, existing, "web"); err != nil {
+		if err := events.Update(r.Context(), eventID, existing); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	case http.MethodDelete:
-		if kind == "p" {
-			if err := s.store.DeletePlannedEvent(r.Context(), numericID, "web"); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else if kind == "e" {
-			if s.sqlDB == nil {
-				http.Error(w, "database is not initialized", http.StatusInternalServerError)
-				return
-			}
-			if err := events.Delete(r.Context(), int64(numericID)); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			if err := s.store.DeleteSession(r.Context(), numericID, "web"); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
+		if err := events.Delete(r.Context(), eventID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *Server) resolveCalendarEventID(ctx context.Context, kind string, numericID int) (int64, error) {
+	if kind == "e" {
+		return int64(numericID), nil
+	}
+	if s.sqlDB == nil {
+		return 0, fmt.Errorf("database is not initialized")
+	}
+	var legacySource string
+	switch kind {
+	case "s":
+		legacySource = "sessions"
+	case "p":
+		legacySource = "planned_events"
+	default:
+		return 0, fmt.Errorf("unsupported id prefix")
+	}
+	var eventID int64
+	err := s.sqlDB.QueryRowContext(ctx, `
+		SELECT id
+		FROM events
+		WHERE legacy_source = ?
+		  AND legacy_id = ?
+		ORDER BY id ASC
+		LIMIT 1`, legacySource, numericID).Scan(&eventID)
+	if err != nil {
+		return 0, err
+	}
+	return eventID, nil
 }
 
 func (s *Server) recurrenceRules(w http.ResponseWriter, r *http.Request) {

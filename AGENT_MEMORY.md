@@ -285,6 +285,30 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Ambiguity defaults used:
   - because Task 11 did not define tolerance or balance formula, default tolerance `10m` and daily alignment average were selected and documented above.
 
+## Task 12 Decisions and Caveats (Cutover Cleanup + Deprecation)
+- Primary runtime read/write cutover is now canonical `events`:
+  - session lifecycle paths (`start`/`break`/`stop`/`status`/`correct`) use tracked `events` rows (`source='tracked'`, `layer='done'`, `status='in_progress'|'done'`).
+  - store adapters for web/session/calendar flows are event-backed (no direct `sessions`/`planned_events` runtime dependency).
+  - stats and dashboard metrics query canonical `events` as source of truth.
+- Tracked-session topic mapping invariant:
+  - focus topic is canonicalized to `Domain::Subtopic` on write.
+  - break tracked events persist as `kind='break'`, `title='Break'`, and expose empty topic in session views.
+- Calendar API cutover behavior:
+  - primary IDs are canonical `e-<id>`.
+  - legacy `s-<id>` / `p-<id>` IDs are accepted only as deprecated compatibility lookups via `events.legacy_source/legacy_id`.
+  - when a legacy-prefixed ID cannot be resolved, API returns `410 Gone` with migration guidance.
+- Finalization caveat reinforced:
+  - after `FinalizeV2Cutover`, legacy sync triggers are removed and post-cutover writes are intentionally **not** mirrored back into legacy tables.
+  - rollback safety depends on restoring the pre-upgrade DB backup if legacy-table mutation behavior is required.
+- Migration safety validation:
+  - added Task 12 legacy-fixture test (`internal/db/migrate_task12_test.go`) to verify:
+    - legacy fixture migration + finalization parity,
+    - canonical-only post-cutover writes,
+    - unchanged legacy table counts after post-cutover writes,
+    - end-to-end read parity via event-backed store adapters.
+- Ambiguity default used:
+  - for deprecated calendar prefixes, compatibility resolution via `legacy_source` lookup was chosen over hard rejection to provide a bounded transition path while still making `e-<id>` canonical.
+
 ## Current Baseline
-- Project currently has sessions + planned events + calendar + dashboard + SQL page.
+- Project runtime is canonical-event-first across CLI/web/stats/dashboard flows, with legacy tables retained for migration compatibility + SQL inspection.
 - Config command IA now centers on `pomo config get|set|list|describe`; `pomo set` remains as deprecated compatibility alias.
