@@ -13,12 +13,14 @@ import (
 )
 
 type calendarEvent struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Start    string `json:"start"`
-	End      string `json:"end,omitempty"`
-	Color    string `json:"color,omitempty"`
-	Editable bool   `json:"editable"`
+	ID             string `json:"id"`
+	Title          string `json:"title"`
+	Start          string `json:"start"`
+	End            string `json:"end,omitempty"`
+	Color          string `json:"color,omitempty"`
+	Status         string `json:"status,omitempty"`
+	BlockingReason string `json:"blocking_reason,omitempty"`
+	Editable       bool   `json:"editable"`
 }
 
 func (s *Server) calendarPage(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +86,7 @@ func (s *Server) calendarEvents(w http.ResponseWriter, r *http.Request) {
 				Start:    sess.StartTime.Format(time.RFC3339),
 				End:      end.Format(time.RFC3339),
 				Color:    color,
+				Status:   "done",
 				Editable: true,
 			})
 		}
@@ -94,6 +97,7 @@ func (s *Server) calendarEvents(w http.ResponseWriter, r *http.Request) {
 				Start:    p.StartTime.Format(time.RFC3339),
 				End:      p.EndTime.Format(time.RFC3339),
 				Color:    "#2b6cb0",
+				Status:   p.Status,
 				Editable: true,
 			})
 		}
@@ -107,13 +111,19 @@ func (s *Server) calendarEvents(w http.ResponseWriter, r *http.Request) {
 			case "manual":
 				color = "#2c5282"
 			}
+			title := e.Title
+			if strings.EqualFold(e.Status, "blocked") && strings.TrimSpace(e.BlockedReason) != "" {
+				title = fmt.Sprintf("%s (blocked: %s)", e.Title, e.BlockedReason)
+			}
 			eventsOut = append(eventsOut, calendarEvent{
-				ID:       fmt.Sprintf("e-%d", e.ID),
-				Title:    e.Title,
-				Start:    e.StartTime.Format(time.RFC3339),
-				End:      e.EndTime.Format(time.RFC3339),
-				Color:    color,
-				Editable: true,
+				ID:             fmt.Sprintf("e-%d", e.ID),
+				Title:          title,
+				Start:          e.StartTime.Format(time.RFC3339),
+				End:            e.EndTime.Format(time.RFC3339),
+				Color:          color,
+				Status:         e.Status,
+				BlockingReason: e.BlockedReason,
+				Editable:       true,
 			})
 		}
 

@@ -65,6 +65,13 @@ var (
 	recurExpandRuleID int64
 )
 
+var (
+	eventDepAddRequired    bool
+	eventDepOverrideAdmin  bool
+	eventDepOverrideClear  bool
+	eventDepOverrideReason string
+)
+
 var eventCmd = &cobra.Command{
 	Use:   "event",
 	Short: "manage planned and done events in unified event storage",
@@ -73,6 +80,11 @@ var eventCmd = &cobra.Command{
 var eventRecurCmd = &cobra.Command{
 	Use:   "recur",
 	Short: "manage recurring rules",
+}
+
+var eventDepCmd = &cobra.Command{
+	Use:   "dep",
+	Short: "manage event dependencies and blocking overrides",
 }
 
 var eventAddCmd = &cobra.Command{
@@ -148,7 +160,7 @@ var eventListCmd = &cobra.Command{
 			if e.RecurrenceRuleID != nil {
 				rule = strconv.FormatInt(*e.RecurrenceRuleID, 10)
 			}
-			fmt.Printf("%4d %-8s %-9s %-11s %-20s %s -> %s %s::%s rule=%s\n",
+			line := fmt.Sprintf("%4d %-8s %-9s %-11s %-20s %s -> %s %s::%s rule=%s",
 				e.ID,
 				e.Kind,
 				e.Layer,
@@ -160,10 +172,125 @@ var eventListCmd = &cobra.Command{
 				e.Subtopic,
 				rule,
 			)
+			if strings.EqualFold(e.Status, "blocked") && strings.TrimSpace(e.BlockedReason) != "" {
+				line += " blocked_reason=" + strconv.Quote(e.BlockedReason)
+			}
+			fmt.Println(line)
 		}
 		if len(rows) == 0 {
 			fmt.Println("No events found in range.")
 		}
+	},
+}
+
+var eventDepAddCmd = &cobra.Command{
+	Use:   "add <event-id> <depends-on-id>",
+	Short: "add or update a dependency edge",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		eventID, err := strconv.ParseInt(strings.TrimSpace(args[0]), 10, 64)
+		if err != nil || eventID <= 0 {
+			fmt.Println("❌ invalid event id")
+			os.Exit(1)
+		}
+		dependsOnID, err := strconv.ParseInt(strings.TrimSpace(args[1]), 10, 64)
+		if err != nil || dependsOnID <= 0 {
+			fmt.Println("❌ invalid depends-on id")
+			os.Exit(1)
+		}
+		if err := events.AddDependency(context.Background(), eventID, dependsOnID, eventDepAddRequired); err != nil {
+			fmt.Println("❌ add dependency failed:", err)
+			os.Exit(1)
+		}
+		mode := "required"
+		if !eventDepAddRequired {
+			mode = "optional"
+		}
+		fmt.Printf("✅ dependency added: event %d -> %d (%s)\n", eventID, dependsOnID, mode)
+	},
+}
+
+var eventDepListCmd = &cobra.Command{
+	Use:   "list <event-id>",
+	Short: "list dependencies for an event",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		eventID, err := strconv.ParseInt(strings.TrimSpace(args[0]), 10, 64)
+		if err != nil || eventID <= 0 {
+			fmt.Println("❌ invalid event id")
+			os.Exit(1)
+		}
+		eventRow, err := events.GetByID(context.Background(), eventID)
+		if err != nil {
+			fmt.Println("❌ load event failed:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Event %d: %s (%s)\n", eventRow.ID, eventRow.Title, eventRow.Status)
+		if strings.EqualFold(eventRow.Status, "blocked") && strings.TrimSpace(eventRow.BlockedReason) != "" {
+			fmt.Printf("Blocked reason: %s\n", eventRow.BlockedReason)
+		}
+		rows, err := events.ListDependencies(context.Background(), eventID)
+		if err != nil {
+			fmt.Println("❌ list dependencies failed:", err)
+			os.Exit(1)
+		}
+		if len(rows) == 0 {
+			fmt.Println("No dependencies found.")
+			return
+		}
+		for _, dep := range rows {
+			mode := "required"
+			if !dep.Required {
+				mode = "optional"
+			}
+			fmt.Printf("- %d <- %d %s status=%s title=%s\n", dep.EventID, dep.DependsOnEventID, mode, dep.DependsOnStatus, dep.DependsOnTitle)
+		}
+	},
+}
+
+var eventDepDeleteCmd = &cobra.Command{
+	Use:   "delete <event-id> <depends-on-id>",
+	Short: "delete a dependency edge",
+	Args:  cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		eventID, err := strconv.ParseInt(strings.TrimSpace(args[0]), 10, 64)
+		if err != nil || eventID <= 0 {
+			fmt.Println("❌ invalid event id")
+			os.Exit(1)
+		}
+		dependsOnID, err := strconv.ParseInt(strings.TrimSpace(args[1]), 10, 64)
+		if err != nil || dependsOnID <= 0 {
+			fmt.Println("❌ invalid depends-on id")
+			os.Exit(1)
+		}
+		if err := events.DeleteDependency(context.Background(), eventID, dependsOnID); err != nil {
+			fmt.Println("❌ delete dependency failed:", err)
+			os.Exit(1)
+		}
+		fmt.Printf("✅ dependency deleted: event %d -/-> %d\n", eventID, dependsOnID)
+	},
+}
+
+var eventDepOverrideCmd = &cobra.Command{
+	Use:   "override <event-id>",
+	Short: "enable or clear dependency blocking override (requires --admin)",
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		eventID, err := strconv.ParseInt(strings.TrimSpace(args[0]), 10, 64)
+		if err != nil || eventID <= 0 {
+			fmt.Println("❌ invalid event id")
+			os.Exit(1)
+		}
+		enabled := !eventDepOverrideClear
+		if err := events.SetDependencyOverride(context.Background(), eventID, enabled, eventDepOverrideAdmin, eventDepOverrideReason, "cli"); err != nil {
+			fmt.Println("❌ set dependency override failed:", err)
+			os.Exit(1)
+		}
+		if enabled {
+			fmt.Printf("✅ dependency override enabled for event %d\n", eventID)
+			return
+		}
+		fmt.Printf("✅ dependency override cleared for event %d\n", eventID)
 	},
 }
 
@@ -448,6 +575,17 @@ func init() {
 	eventCmd.AddCommand(eventAddCmd)
 	eventCmd.AddCommand(eventListCmd)
 	eventCmd.AddCommand(eventRecurCmd)
+	eventCmd.AddCommand(eventDepCmd)
+
+	eventDepAddCmd.Flags().BoolVar(&eventDepAddRequired, "required", true, "whether dependency is required for unblocking")
+	eventDepOverrideCmd.Flags().BoolVar(&eventDepOverrideAdmin, "admin", false, "confirm administrative override intent")
+	eventDepOverrideCmd.Flags().BoolVar(&eventDepOverrideClear, "clear", false, "clear override instead of enabling")
+	eventDepOverrideCmd.Flags().StringVar(&eventDepOverrideReason, "reason", "", "optional override reason for audit logging")
+
+	eventDepCmd.AddCommand(eventDepAddCmd)
+	eventDepCmd.AddCommand(eventDepListCmd)
+	eventDepCmd.AddCommand(eventDepDeleteCmd)
+	eventDepCmd.AddCommand(eventDepOverrideCmd)
 
 	eventRecurAddCmd.Flags().StringVar(&recurAddTitle, "title", "", "rule title")
 	eventRecurAddCmd.Flags().StringVar(&recurAddStart, "start", "", "first occurrence start time")

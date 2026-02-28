@@ -176,6 +176,24 @@ Acceptance:
 ## 5) `feature/05-workload-targets-and-balanced-scheduler-v1`
 Goal: implement weekly/monthly/daily workload targets and balanced generation.
 
+Status (2026-02-28): done
+- Delivered prerequisite migration hardening (`012_task5_scheduler_topic_backfill`) with idempotent legacy planned-topic reconciliation and scheduler indexing updates.
+- Implemented workload-target/constraint persistence and CLI surfaces:
+  - `pomo plan target add|list|delete|set-active`
+  - `pomo plan constraint show|set`
+  - `pomo plan generate [--dry-run] [--replace]`
+- Implemented scheduler v1 engine (deterministic balanced-week greedy allocator):
+  - consumes existing fixed commitments first
+  - respects explicit active weekdays, day window, meal windows, and max-hours/day cap
+  - spreads generated workload across eligible days via deterministic round-robin day allocation
+  - deducts fixed same-topic commitment time from target demand before generating scheduler rows
+  - records run metadata in `schedule_runs` / `schedule_run_events` on apply mode
+- Added scheduler acceptance tests:
+  - deterministic snapshot stability
+  - balanced distribution across selected weekdays
+  - target satisfaction with fixed-event deductions
+  - conflict/impossible diagnostics with missing-capacity reporting
+
 - Add targets:
   - e.g. `Math 8h/week`, `Gym 4x/week @ 2h`
 - Constraint model:
@@ -205,6 +223,24 @@ Acceptance:
 ## 6) `feature/06-dependencies-and-blocking`
 Goal: enforce prerequisite chains in planning and execution.
 
+Status (2026-02-28): done
+- Added Task 6 hardening migration (`013_task6_dependency_blocking_hardening`) with replay-safe dependency/blocking indexes and blocked-field normalization.
+- Implemented dependency graph service in `internal/events`:
+  - add/list/delete dependency edges
+  - cycle detection with recursive traversal validation
+  - blocked/unblocked reconciliation for events and windows
+  - admin-gated dependency override with audit log writes
+- Scheduler apply runs now reconcile dependency status transitions in-window and persist `schedule_run_events` entries with `block`/`update` actions plus blocking diagnostics.
+- CLI surfaces:
+  - new `pomo event dep add|list|delete|override`
+  - `event list` output now includes blocked reason for blocked events
+- Web calendar payload now surfaces blocking state/reason for canonical events.
+- Added acceptance coverage:
+  - cycle detection tests
+  - blocked/unblocked transition tests
+  - scheduler generation/reconciliation tests with dependency constraints
+  - migration replay/parity/index tests for Task 6 schema updates
+
 - Dependency graph:
   - `tutorial` depends on `lecture`
 - Enforcement:
@@ -225,6 +261,12 @@ Acceptance:
 
 ## 7) `feature/07-break-credit-and-effective-time-metrics`
 Goal: analytics logic for short-break inclusion within same domain.
+
+Status (2026-02-28): done
+- Implemented derived effective-focus metrics engine over ordered session rows with thresholded short-break credit.
+- Added effective metric config support in runtime usage (`break_credit_threshold_minutes`, default `10`) and coverage for set/get/validation/default persistence.
+- Integrated raw vs effective totals into CLI stats report output and dashboard totals module.
+- Added acceptance coverage for threshold edge behavior, report raw-vs-effective output deltas, and no-mutation guarantees for `sessions`/`events` source rows.
 
 - Implement “effective focus time” metric:
   - if break between consecutive same-domain focus sessions is <= threshold (default 10m), count break toward effective domain time

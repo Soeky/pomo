@@ -118,8 +118,8 @@ func FinalizeV2Cutover(ctx context.Context, opened *sql.DB) (V2FinalizationResul
 		SELECT
 			'task' AS kind,
 			p.title AS title,
-			p.title AS domain,
-			'General' AS subtopic,
+			COALESCE(NULLIF(TRIM(p.domain), ''), COALESCE(NULLIF(TRIM(p.title), ''), 'General')) AS domain,
+			COALESCE(NULLIF(TRIM(p.subtopic), ''), 'General') AS subtopic,
 			p.description AS description,
 			p.start_time AS start_time,
 			p.end_time AS end_time,
@@ -186,8 +186,8 @@ func FinalizeV2Cutover(ctx context.Context, opened *sql.DB) (V2FinalizationResul
 		UPDATE events
 		SET kind = 'task',
 			title = p.title,
-			domain = p.title,
-			subtopic = 'General',
+			domain = COALESCE(NULLIF(TRIM(p.domain), ''), COALESCE(NULLIF(TRIM(p.title), ''), 'General')),
+			subtopic = COALESCE(NULLIF(TRIM(p.subtopic), ''), 'General'),
 			description = p.description,
 			start_time = p.start_time,
 			end_time = p.end_time,

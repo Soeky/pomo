@@ -23,77 +23,260 @@ Go through the plan, generate a memory file for codex and also ask if something 
 
 Generate a Step by Step plan inside IMPLEMENTATION_PLAN.md
 
-  Implement Task 2 from IMPLEMENTATION_PLAN.md in this repository.
+Task execution prompt template for Task 7:
 
-  Mandatory context to read first:
-  1) IMPLEMENTATION_PLAN.md
-  2) AGENT_MEMORY.md
-  3) docs/architecture/events.md
-  4) README.md
+Implement Task 7 from IMPLEMENTATION_PLAN.md in this repository.
 
-  Execution rules:
-  - Only implement Task 2 acceptance criteria and required prerequisites.
-  - Preserve backward compatibility unless Task 2 explicitly removes it.
-  - Follow existing code style and test patterns.
-  - If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
-  - Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration
-  caveats.
-  - Update IMPLEMENTATION_PLAN.md progress markers for Task 2 (done/in progress, brief notes).
-  - Do not skip tests.
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
 
-  Deliverables:
-  - Code changes for Task 2
-  - Tests for new behavior and regressions
-  - Migration changes (if needed) with idempotency/backfill safety
-  - Updated docs/help text if user-facing behavior changes
+Execution rules:
+- Only implement Task 7 acceptance criteria and required prerequisites.
+- Preserve backward compatibility unless Task 7 explicitly removes it.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 7 (done/in progress, brief notes).
+- Do not skip tests.
 
-  Validation required before finishing:
-  - gofmt on changed Go files
-  - go test ./...
-  - go vet ./...
+Deliverables:
+- Effective focus-time metric logic:
+  - count short breaks toward effective time when the break is between consecutive same-domain focus sessions and break duration is <= configured threshold
+- Config support for `break_credit_threshold_minutes` (default: 10)
+- Stats/dashboard/report integration to expose raw vs effective totals
+- Tests for:
+  - threshold edge cases
+  - raw vs effective report output differences
+  - no mutation of source `events`/legacy rows (derived-metrics only)
+- Minimal docs/help updates if user-facing behavior changes
 
-  Final response format:
-  1) What was implemented for Task 2
-  2) File-by-file change summary
-  3) Test results
-  4) Any assumptions/defaults used
-  5) What remains (if anything) to fully close Task 2
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go vet ./...
 
-  Example for Task 2:
+Final response format:
+1) What was implemented for Task 7
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 7
 
-  Implement Task 5 from IMPLEMENTATION_PLAN.md in this repository.
+Task execution prompt template for Task 8:
 
-  Mandatory context to read first:
-  1) IMPLEMENTATION_PLAN.md
-  2) AGENT_MEMORY.md
-  3) docs/architecture/events.md
-  4) README.md
+Implement Task 8 from IMPLEMENTATION_PLAN.md in this repository.
 
-  Execution rules:
-  - Only implement Task 5 acceptance criteria and required prerequisites.
-  - Preserve backward compatibility unless Task 5 explicitly removes it.
-  - Follow existing code style and test patterns.
-  - If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
-  - Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration
-  caveats.
-  - Update IMPLEMENTATION_PLAN.md progress markers for Task 5 (done/in progress, brief notes).
-  - Do not skip tests.
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
 
-  Deliverables:
-  - DB migrations for unified events + related scheduler tables
-  - Safe/idempotent backfill from sessions/planned_events into events
-  - Indexing and migration tests (idempotency, reconciliation, parity)
-  - Any minimal adapter changes needed to keep app behavior stable
+Execution rules:
+- Only implement Task 8 acceptance criteria and required prerequisites.
+- Preserve backward compatibility unless Task 8 explicitly removes it.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 8 (done/in progress, brief notes).
+- Do not skip tests.
 
-  Validation required before finishing:
-  - gofmt on changed Go files
-  - go test ./...
-  - go vet ./...
+Deliverables:
+- Bubble Tea-based TUI management suite for planning/config flows:
+  - Event manager (single/recurring add/edit/delete)
+  - Scheduler review/apply screen
+  - Config wizard (weekday constraints, day windows, meal breaks, thresholds)
+  - Dependency editor
+- Keep `start`, `break`, `stop`, and `status` as non-TUI commands.
+- Tests for:
+  - non-interactive model state transitions
+  - command startup/exit smoke paths
+  - accessibility and keyboard navigation behavior
+- Minimal docs/help updates if user-facing behavior changes.
 
-  Final response format:
-  1) What was implemented for Task 5
-  2) File-by-file change summary
-  3) Test results
-  4) Any assumptions/defaults used
-  5) What remains (if anything) to fully close Task 5
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go vet ./...
 
+Final response format:
+1) What was implemented for Task 8
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 8
+
+Task execution prompt template for Task 9:
+
+Implement Task 9 from IMPLEMENTATION_PLAN.md in this repository.
+
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
+
+Execution rules:
+- Only implement Task 9 acceptance criteria and required prerequisites.
+- Preserve backward compatibility unless Task 9 explicitly removes it.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 9 (done/in progress, brief notes).
+- Do not skip tests.
+
+Deliverables:
+- Web UI refresh (templates/CSS) with clearer hierarchy, denser calendar controls, and schedule-centric dashboard cards.
+- Keep HTMX + server-rendered templates.
+- Runtime-mode improvements:
+  - implement and document the chosen startup strategy (daemon + auto-sleep or on-demand start with warm health-check)
+  - expose `web mode` config and command help text
+- Optimize assets and route-level rendering.
+- Validation artifacts:
+  - web handler tests remain green
+  - startup latency before/after comparison documented
+  - memory footprint before/after check documented
+
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go vet ./...
+
+Final response format:
+1) What was implemented for Task 9
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 9
+
+Task execution prompt template for Task 10:
+
+Implement Task 10 from IMPLEMENTATION_PLAN.md in this repository.
+
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
+
+Execution rules:
+- Only implement Task 10 acceptance criteria and required prerequisites.
+- Preserve backward compatibility unless Task 10 explicitly removes it.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 10 (done/in progress, brief notes).
+- Do not skip tests.
+
+Deliverables:
+- CLI help/IA improvements:
+  - introduce/complete `pomo config get|set|list|describe`
+  - keep `pomo set` as compatibility alias with warning/deprecation guidance
+  - improve `Long` help text for command groups with concrete examples
+  - add `pomo help workflow` with a recommended daily workflow
+- Tests for:
+  - golden help output
+  - integration checks that command examples are valid
+- README updates reflecting the new help and workflow model.
+
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go vet ./...
+
+Final response format:
+1) What was implemented for Task 10
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 10
+
+Task execution prompt template for Task 11:
+
+Implement Task 11 from IMPLEMENTATION_PLAN.md in this repository.
+
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
+
+Execution rules:
+- Only implement Task 11 acceptance criteria and required prerequisites.
+- Preserve backward compatibility unless Task 11 explicitly removes it.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 11 (done/in progress, brief notes).
+- Do not skip tests.
+
+Deliverables:
+- Dashboard plan-vs-actual modules:
+  - on-time adherence
+  - plan completion
+  - drift by domain
+  - weekly balance score
+- CLI stats extensions:
+  - `pomo stat adherence`
+  - `pomo stat plan-vs-actual [range]`
+- Tests for:
+  - metric correctness with seeded fixtures
+  - web modules across empty/partial/full datasets
+  - cross-check parity between dashboard and CLI numbers
+
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go vet ./...
+
+Final response format:
+1) What was implemented for Task 11
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 11
+
+Task execution prompt template for Task 12:
+
+Implement Task 12 from IMPLEMENTATION_PLAN.md in this repository.
+
+Mandatory context to read first:
+1) IMPLEMENTATION_PLAN.md
+2) AGENT_MEMORY.md
+3) docs/architecture/events.md
+4) README.md
+
+Execution rules:
+- Only implement Task 12 acceptance criteria and required prerequisites.
+- Preserve backward compatibility only where Task 12 requires it; apply explicit cutover/deprecation behavior where Task 12 defines removal.
+- Follow existing code style and test patterns.
+- If a decision is ambiguous, choose the default from AGENT_MEMORY.md and document it.
+- Update AGENT_MEMORY.md with any new decisions, invariants, schema/API changes, and migration caveats.
+- Update IMPLEMENTATION_PLAN.md progress markers for Task 12 (done/in progress, brief notes).
+- Do not skip tests.
+
+Deliverables:
+- Complete cutover cleanup:
+  - switch primary reads/writes fully to unified `events`
+  - remove/deprecate temporary legacy direct-table assumptions per Task 12 scope
+  - add migration/version notes
+  - include release checklist and rollback notes
+- Migration safety validation from old user DB fixture to latest schema with end-to-end parity checks.
+- Final quality gates and performance/coverage readiness evidence.
+
+Validation required before finishing:
+- gofmt on changed Go files
+- go test ./...
+- go test -race ./...
+- make test-cover
+- go vet ./...
+
+Final response format:
+1) What was implemented for Task 12
+2) File-by-file change summary
+3) Test results
+4) Any assumptions/defaults used
+5) What remains (if anything) to fully close Task 12

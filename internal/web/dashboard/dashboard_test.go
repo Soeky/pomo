@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Soeky/pomo/internal/config"
 	"github.com/Soeky/pomo/internal/db"
 )
 
@@ -56,6 +57,59 @@ func TestRegistryAllWithDB(t *testing.T) {
 	}
 	if len(defs) != 3 {
 		t.Fatalf("expected 3 dashboard modules, got %d", len(defs))
+	}
+}
+
+func TestTotalsModuleIncludesEffectiveFocus(t *testing.T) {
+	opened, err := db.Open(filepath.Join(t.TempDir(), "pomo.db"))
+	if err != nil {
+		t.Fatalf("db.Open failed: %v", err)
+	}
+	defer opened.Close()
+
+	prevConfig := config.AppConfig
+	defer func() { config.AppConfig = prevConfig }()
+	config.AppConfig.BreakCreditThresholdMinutes = 10
+
+	start := time.Date(2026, 2, 25, 10, 0, 0, 0, time.UTC)
+	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::A", start, start.Add(25*time.Minute), int((25 * time.Minute).Seconds()), start, start); err != nil {
+		t.Fatalf("insert focus #1 failed: %v", err)
+	}
+	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"break", "", start.Add(25*time.Minute), start.Add(35*time.Minute), int((10 * time.Minute).Seconds()), start, start); err != nil {
+		t.Fatalf("insert break failed: %v", err)
+	}
+	if _, err := opened.Exec(`INSERT INTO sessions(type, topic, start_time, end_time, duration, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"focus", "Math::B", start.Add(35*time.Minute), start.Add(60*time.Minute), int((25 * time.Minute).Seconds()), start, start); err != nil {
+		t.Fatalf("insert focus #2 failed: %v", err)
+	}
+
+	r := NewRegistry(opened)
+	module, ok := r.ByID("totals")
+	if !ok {
+		t.Fatalf("totals module missing")
+	}
+
+	dataAny, err := module.Load(context.Background(), start.Add(-time.Minute), start.Add(2*time.Hour))
+	if err != nil {
+		t.Fatalf("totals load failed: %v", err)
+	}
+	data, ok := dataAny.(TotalsData)
+	if !ok {
+		t.Fatalf("unexpected totals data type: %T", dataAny)
+	}
+	if data.FocusMinutes != 50 {
+		t.Fatalf("unexpected raw focus minutes: %d", data.FocusMinutes)
+	}
+	if data.EffectiveFocusMinutes != 60 {
+		t.Fatalf("unexpected effective focus minutes: %d", data.EffectiveFocusMinutes)
+	}
+	if data.BreakCreditMinutes != 10 {
+		t.Fatalf("unexpected break credit minutes: %d", data.BreakCreditMinutes)
+	}
+	if data.BreakMinutes != 10 {
+		t.Fatalf("unexpected raw break minutes: %d", data.BreakMinutes)
 	}
 }
 

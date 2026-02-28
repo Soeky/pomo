@@ -99,6 +99,100 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Web adapter safety default: recurrence/canonical event endpoints now return HTTP 500 (`database is not initialized`) when server runs with a mock store/no DB instead of panicking.
 - Ambiguity default used: for short months in monthly recurrences, clamping-to-month-end was chosen over skipping that month.
 
+## Task 5 Decisions and Caveats (Scheduler Prerequisite Migration + Reconciliation Hardening)
+- Added migration `012_task5_scheduler_topic_backfill` to harden unified-event/scheduler indexing and refresh planned-event compatibility sync.
+- Schema change:
+  - `planned_events.domain` and `planned_events.subtopic` columns are introduced (`TEXT NOT NULL`, default `General`) to keep legacy planned rows topic-structured for scheduler-target reconciliation.
+- Backfill/reconciliation policy:
+  - During migration apply, every `planned_events.title` is parsed with the canonical topic parser (`\::` escape aware) and persisted into `planned_events.domain/subtopic`.
+  - Migration then performs idempotent `INSERT OR IGNORE` + normalization update into `events` for `legacy_source='planned_events'`.
+  - Legacy-backed scheduler linkage fields (`recurrence_rule_id`, `workload_target_id`, `metadata_json`) are cleared on reconciliation to preserve compatibility invariants.
+- Adapter/runtime updates:
+  - `store.CreatePlannedEvent` and `store.UpdatePlannedEvent` now derive and persist `domain/subtopic` from `title` to keep legacy writes and canonical `events` in parity.
+  - `FinalizeV2Cutover` planned-event reconciliation now consumes `planned_events.domain/subtopic` (with fallback) instead of flattening to `domain=title`.
+- New indexes introduced:
+  - `idx_planned_events_topic`
+  - `idx_events_workload_target_time` (partial)
+  - `idx_events_source_status_time`
+  - `idx_workload_targets_active_cadence_topic`
+  - `idx_schedule_constraints_updated_at`
+  - `idx_schedule_run_events_run_action`
+- Ambiguity default used:
+  - For legacy planned rows, `title` remains the compatibility source-of-truth and structured fields are derived from it during migration/reapply, rather than inferring from existing drifted `domain/subtopic` values.
+- Scheduler v1 delivery decisions:
+  - Constraints persistence key: `schedule_constraints.key = 'balanced_v1'` with JSON payload for weekdays/day windows/meal windows/max-hours/day/timezone.
+  - Default `max_hours_per_day`: `8` when unset.
+  - Target-semantics default:
+    - if `target_occurrences > 0`, `target_seconds` is interpreted as per-occurrence duration (`Nx @ duration`).
+    - otherwise `target_seconds` is interpreted as total duration per cadence unit.
+  - Cadence unit counting:
+    - `daily`: per active day in the window
+    - `weekly`: per distinct ISO week that contains active days in the window
+    - `monthly`: per distinct month that contains active days in the window
+  - Deduction policy:
+    - fixed commitments (`source != scheduler`) matching target topic reduce remaining target demand before generation.
+    - existing scheduler events (`source=scheduler`, matching `workload_target_id`) are treated as already-satisfied demand when generation is not in replace mode.
+  - Allocation policy:
+    - deterministic greedy placement with round-robin day selection across active days.
+    - scheduler never places events outside configured day windows, meal reservations, or day-cap limits.
+    - minimum split chunk is 15 minutes; unresolved residual demand produces explicit `insufficient_capacity` diagnostics.
+  - Apply-mode persistence (`pomo plan generate` without `--dry-run`):
+    - writes generated rows into canonical `events` with `source=scheduler`, `layer=planned`, `status=planned`, `workload_target_id` linkage.
+    - records run metadata in `schedule_runs` and created-event entries in `schedule_run_events`.
+
+## Task 6 Decisions and Caveats (Dependencies + Blocking Enforcement)
+- Added migration `013_task6_dependency_blocking_hardening`.
+- Schema/index updates:
+  - `events.blocked_reason` (`TEXT`, nullable)
+  - `events.blocked_override` (`INTEGER NOT NULL DEFAULT 0`)
+  - `idx_event_dependencies_required`
+  - `idx_event_dependencies_dep_required`
+  - `idx_events_status_override_time`
+- Blocking reconciliation invariant:
+  - planned events with unmet required dependencies are forced to `status=blocked` with a computed `blocked_reason`.
+  - when required dependencies become satisfied, blocked events auto-transition to `status=planned` and clear `blocked_reason`.
+  - `done`/`canceled` events are not auto-reblocked.
+- Dependency graph policy:
+  - cycles are rejected on insert/update via recursive path validation (`ErrDependencyCycle`).
+  - delete dependency reconciles dependent closure to refresh blocked/unblocked state.
+- Manual override policy:
+  - override requires explicit admin confirmation (`--admin` on CLI, otherwise `ErrOverrideNotAllowed`).
+  - override flips `blocked_override` and reconciliation respects this guard.
+  - every override enable/disable writes an audit row to `audit_log` with actions:
+    - `dependency_override_enable`
+    - `dependency_override_disable`
+- Scheduler enforcement policy:
+  - apply-mode `plan generate` reconciles dependency blocking in the requested window after persistence.
+  - dependency transitions are written into `schedule_run_events` using `block` or `update` actions with details JSON.
+- Surface updates:
+  - CLI:
+    - new `pomo event dep add|list|delete|override`
+    - `pomo event list` now prints `blocked_reason` for blocked events.
+  - Web:
+    - `/calendar/events` payload now includes `status` and `blocking_reason` for canonical events.
+    - blocked canonical event titles include blocking context for immediate visibility in calendar UI.
+- Migration replay caveat:
+  - `013` is replay-safe; blocked fields are re-normalized and indexes are recreated idempotently.
+- Ambiguity default used:
+  - user prompt labeled this work as Task 6 but also listed prior migration/backfill deliverables; execution followed Task 6 acceptance criteria while preserving previously delivered unified-event backfill compatibility invariants.
+
+## Task 7 Decisions and Caveats (Break Credit + Effective Focus Metrics)
+- Effective-focus metrics are derived-only analytics:
+  - no mutation of `sessions` or canonical `events` rows is performed while computing/reporting break credit.
+- Break-credit rule (locked implementation):
+  - a break is credited only when it is directly between adjacent focus sessions in timeline order (`start_time`, `id`) and both neighboring focus sessions resolve to the same domain.
+  - eligibility is inclusive on threshold (`break_duration <= break_credit_threshold_minutes`).
+- Domain resolution policy for break credit:
+  - focus session topic is parsed using canonical `Domain::Subtopic` rules.
+  - when parsing fails for legacy/free-text topics, the trimmed raw topic string is treated as domain (empty -> `General`).
+- Config/runtime policy:
+  - `break_credit_threshold_minutes` remains default `10`; metrics callers defensively fall back to `10` if runtime config is unset/invalid.
+- Surface updates:
+  - CLI `pomo stat` totals now expose raw focus, effective focus, credited breaks, and raw breaks.
+  - web dashboard totals module now exposes raw focus, effective focus, credited breaks, and raw breaks.
+- Ambiguity default used:
+  - “between consecutive same-domain focus sessions” was implemented as immediate-neighbor focus checks (no skipping over intermediate non-focus rows).
+
 ## v2 Major Upgrade Decisions (Cutover + CLI Upgrade Command)
 - `pomo upgrade` is the canonical in-CLI upgrade entrypoint (`pomo update` is an alias).
 - Default `pomo upgrade` flow:

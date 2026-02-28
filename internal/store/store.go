@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Soeky/pomo/internal/db"
+	"github.com/Soeky/pomo/internal/topics"
 )
 
 type Session struct {
@@ -24,6 +25,8 @@ type Session struct {
 type PlannedEvent struct {
 	ID          int       `json:"id"`
 	Title       string    `json:"title"`
+	Domain      string    `json:"domain"`
+	Subtopic    string    `json:"subtopic"`
 	Description string    `json:"description"`
 	StartTime   time.Time `json:"start_time"`
 	EndTime     time.Time `json:"end_time"`
@@ -212,7 +215,7 @@ func DeleteSession(ctx context.Context, id int, origin string) error {
 
 func PlannedEventsInRange(ctx context.Context, from, to time.Time) ([]PlannedEvent, error) {
 	rows, err := db.DB.QueryContext(ctx, `
-		SELECT id, title, description, start_time, end_time, status, source
+		SELECT id, title, domain, subtopic, description, start_time, end_time, status, source
 		FROM planned_events
 		WHERE start_time < ? AND end_time > ?
 		ORDER BY start_time ASC`, to, from)
@@ -224,7 +227,7 @@ func PlannedEventsInRange(ctx context.Context, from, to time.Time) ([]PlannedEve
 	var out []PlannedEvent
 	for rows.Next() {
 		var e PlannedEvent
-		if err := rows.Scan(&e.ID, &e.Title, &e.Description, &e.StartTime, &e.EndTime, &e.Status, &e.Source); err != nil {
+		if err := rows.Scan(&e.ID, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.Status, &e.Source); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -242,11 +245,14 @@ func CreatePlannedEvent(ctx context.Context, e PlannedEvent, origin string) (int
 	if e.Source == "" {
 		e.Source = "manual"
 	}
+	if err := fillPlannedEventTopic(&e); err != nil {
+		return 0, err
+	}
 
 	res, err := db.DB.ExecContext(ctx, `
-		INSERT INTO planned_events(title, description, start_time, end_time, status, source, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		e.Title, e.Description, e.StartTime, e.EndTime, e.Status, e.Source, time.Now(), time.Now())
+		INSERT INTO planned_events(title, domain, subtopic, description, start_time, end_time, status, source, created_at, updated_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Title, e.Domain, e.Subtopic, e.Description, e.StartTime, e.EndTime, e.Status, e.Source, time.Now(), time.Now())
 	if err != nil {
 		return 0, err
 	}
@@ -262,10 +268,10 @@ func CreatePlannedEvent(ctx context.Context, e PlannedEvent, origin string) (int
 func GetPlannedEventByID(ctx context.Context, id int) (PlannedEvent, error) {
 	var e PlannedEvent
 	err := db.DB.QueryRowContext(ctx, `
-		SELECT id, title, description, start_time, end_time, status, source
+		SELECT id, title, domain, subtopic, description, start_time, end_time, status, source
 		FROM planned_events
 		WHERE id = ?`, id).
-		Scan(&e.ID, &e.Title, &e.Description, &e.StartTime, &e.EndTime, &e.Status, &e.Source)
+		Scan(&e.ID, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.Status, &e.Source)
 	if err != nil {
 		return PlannedEvent{}, err
 	}
@@ -277,11 +283,14 @@ func UpdatePlannedEvent(ctx context.Context, id int, e PlannedEvent, origin stri
 	if err != nil {
 		return err
 	}
+	if err := fillPlannedEventTopic(&e); err != nil {
+		return err
+	}
 	_, err = db.DB.ExecContext(ctx, `
 		UPDATE planned_events
-		SET title = ?, description = ?, start_time = ?, end_time = ?, status = ?, source = ?, updated_at = ?
+		SET title = ?, domain = ?, subtopic = ?, description = ?, start_time = ?, end_time = ?, status = ?, source = ?, updated_at = ?
 		WHERE id = ?`,
-		e.Title, e.Description, e.StartTime, e.EndTime, e.Status, e.Source, time.Now(), id)
+		e.Title, e.Domain, e.Subtopic, e.Description, e.StartTime, e.EndTime, e.Status, e.Source, time.Now(), id)
 	if err != nil {
 		return err
 	}
@@ -366,4 +375,23 @@ func marshalMaybeJSON(v any) (sql.NullString, error) {
 		return sql.NullString{}, err
 	}
 	return sql.NullString{String: string(b), Valid: true}, nil
+}
+
+func fillPlannedEventTopic(e *PlannedEvent) error {
+	path, err := topics.Parse(e.Title)
+	if err != nil {
+		trimmed := strings.TrimSpace(e.Title)
+		if trimmed == "" {
+			e.Domain = topics.DefaultDomain
+			e.Subtopic = topics.DefaultSubtopic
+			return nil
+		}
+		path, err = topics.ParseParts(trimmed, topics.DefaultSubtopic)
+		if err != nil {
+			return err
+		}
+	}
+	e.Domain = path.Domain
+	e.Subtopic = path.Subtopic
+	return nil
 }

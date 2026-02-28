@@ -5,6 +5,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/Soeky/pomo/internal/config"
 )
 
 type WorkLine struct {
@@ -14,17 +16,19 @@ type WorkLine struct {
 }
 
 type StatsReport struct {
-	Label        string
-	Work         []WorkLine
-	TopDomains   []WorkLine
-	TopSubtopics []WorkLine
-	BreakCount   int
-	BreakMinutes int
-	WorkTotalMin int
-	WorkAvgMin   float64
-	HasWorkAvg   bool
-	BreakAvgMin  float64
-	HasBreakAvg  bool
+	Label            string
+	Work             []WorkLine
+	TopDomains       []WorkLine
+	TopSubtopics     []WorkLine
+	BreakCount       int
+	BreakMinutes     int
+	WorkTotalMin     int
+	WorkEffectiveMin int
+	BreakCreditMin   int
+	WorkAvgMin       float64
+	HasWorkAvg       bool
+	BreakAvgMin      float64
+	HasBreakAvg      bool
 }
 
 func BuildReport(args []string, now time.Time) (StatsReport, error) {
@@ -34,15 +38,22 @@ func BuildReport(args []string, now time.Time) (StatsReport, error) {
 	if err != nil {
 		return StatsReport{}, err
 	}
+	effectiveTotals, err := QueryEffectiveFocusTotals(start, end, config.AppConfig.BreakCreditThresholdMinutes)
+	if err != nil {
+		return StatsReport{}, err
+	}
 	blocks, err := QuerySessionBlocks(start, end)
 	if err != nil {
 		return StatsReport{}, err
 	}
 
 	report := StatsReport{
-		Label:        label,
-		BreakCount:   breakStats.Count,
-		BreakMinutes: breakStats.TotalMinutes,
+		Label:            label,
+		BreakCount:       breakStats.Count,
+		BreakMinutes:     breakStats.TotalMinutes,
+		WorkTotalMin:     effectiveTotals.RawFocusMinutes,
+		WorkEffectiveMin: effectiveTotals.EffectiveFocusMinutes,
+		BreakCreditMin:   effectiveTotals.CreditedBreakMinutes,
 	}
 
 	workBlockCount := 0
@@ -67,7 +78,6 @@ func BuildReport(args []string, now time.Time) (StatsReport, error) {
 			Count:   e.Count,
 			Minutes: e.TotalMinutes,
 		})
-		report.WorkTotalMin += e.TotalMinutes
 	}
 
 	if len(args) == 1 && strings.EqualFold(strings.TrimSpace(args[0]), "sem") {
@@ -150,8 +160,10 @@ func RenderReport(report StatsReport) string {
 	}
 
 	b.WriteString("\n🧠 Total:\n")
-	fmt.Fprintf(&b, "Worktime:  %s h\n", FormatMinutesToHM(report.WorkTotalMin))
-	fmt.Fprintf(&b, "Breaktime: %s h\n\n", FormatMinutesToHM(report.BreakMinutes))
+	fmt.Fprintf(&b, "Worktime (raw):       %s h\n", FormatMinutesToHM(report.WorkTotalMin))
+	fmt.Fprintf(&b, "Worktime (effective): %s h\n", FormatMinutesToHM(report.WorkEffectiveMin))
+	fmt.Fprintf(&b, "Break credit:         %s h\n", FormatMinutesToHM(report.BreakCreditMin))
+	fmt.Fprintf(&b, "Breaktime (raw):      %s h\n\n", FormatMinutesToHM(report.BreakMinutes))
 	return b.String()
 }
 

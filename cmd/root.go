@@ -15,6 +15,7 @@ Core commands:
   pomo start [duration] [domain::subtopic]
   pomo break [duration]
   pomo stat [range]
+  pomo plan target|constraint|generate|status
   pomo config list|get|set|describe
   pomo upgrade [--version <tag>]`,
 }

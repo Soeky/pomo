@@ -25,6 +25,8 @@ type Event struct {
 	Status           string
 	Source           string
 	RecurrenceRuleID *int64
+	BlockedReason    string
+	BlockedOverride  bool
 }
 
 var allowedKinds = map[string]struct{}{
@@ -63,10 +65,14 @@ func Create(ctx context.Context, e Event) (int64, error) {
 	}
 
 	now := time.Now()
+	override := 0
+	if e.BlockedOverride {
+		override = 1
+	}
 	res, err := db.DB.ExecContext(ctx, `
-		INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, created_at, updated_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		e.Kind, e.Title, e.Domain, e.Subtopic, e.Description, e.StartTime, e.EndTime, e.DurationSec, e.Layer, e.Status, e.Source, now, now)
+		INSERT INTO events(kind, title, domain, subtopic, description, start_time, end_time, duration, layer, status, source, blocked_reason, blocked_override, created_at, updated_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.Kind, e.Title, e.Domain, e.Subtopic, e.Description, e.StartTime, e.EndTime, e.DurationSec, e.Layer, e.Status, e.Source, nullableText(e.BlockedReason), override, now, now)
 	if err != nil {
 		return 0, err
 	}
@@ -75,18 +81,20 @@ func Create(ctx context.Context, e Event) (int64, error) {
 
 func GetByID(ctx context.Context, id int64) (Event, error) {
 	row := db.DB.QueryRowContext(ctx, `
-		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id
+		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id, COALESCE(blocked_reason, ''), COALESCE(blocked_override, 0)
 		FROM events
 		WHERE id = ?`, id)
 	var e Event
 	var ruleID sql.NullInt64
-	if err := row.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID); err != nil {
+	var blockedOverride int
+	if err := row.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID, &e.BlockedReason, &blockedOverride); err != nil {
 		return Event{}, err
 	}
 	if ruleID.Valid {
 		v := ruleID.Int64
 		e.RecurrenceRuleID = &v
 	}
+	e.BlockedOverride = blockedOverride == 1
 	return e, nil
 }
 
@@ -94,17 +102,28 @@ func Update(ctx context.Context, id int64, e Event) error {
 	if err := normalizeAndValidate(&e); err != nil {
 		return err
 	}
+	override := 0
+	if e.BlockedOverride {
+		override = 1
+	}
 	_, err := db.DB.ExecContext(ctx, `
 		UPDATE events
 		SET kind = ?, title = ?, domain = ?, subtopic = ?, description = ?,
-		    start_time = ?, end_time = ?, duration = ?, layer = ?, status = ?, source = ?, updated_at = ?
+		    start_time = ?, end_time = ?, duration = ?, layer = ?, status = ?, source = ?, blocked_reason = ?, blocked_override = ?, updated_at = ?
 		WHERE id = ?`,
 		e.Kind, e.Title, e.Domain, e.Subtopic, e.Description,
-		e.StartTime, e.EndTime, e.DurationSec, e.Layer, e.Status, e.Source, time.Now(), id)
+		e.StartTime, e.EndTime, e.DurationSec, e.Layer, e.Status, e.Source, nullableText(e.BlockedReason), override, time.Now(), id)
+	if err != nil {
+		return err
+	}
+	_, err = ReconcileBlockedStatusesForEventAndDependents(ctx, id)
 	return err
 }
 
 func Delete(ctx context.Context, id int64) error {
+	if _, err := db.DB.ExecContext(ctx, `DELETE FROM event_dependencies WHERE event_id = ? OR depends_on_event_id = ?`, id, id); err != nil {
+		return err
+	}
 	_, err := db.DB.ExecContext(ctx, `DELETE FROM events WHERE id = ?`, id)
 	return err
 }
@@ -119,7 +138,7 @@ func ListCanonicalInRange(ctx context.Context, from, to time.Time) ([]Event, err
 
 func listWithWhere(ctx context.Context, from, to time.Time, extraWhere string) ([]Event, error) {
 	rows, err := db.DB.QueryContext(ctx, `
-		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id
+		SELECT id, kind, title, domain, subtopic, COALESCE(description, ''), start_time, end_time, duration, layer, status, source, recurrence_rule_id, COALESCE(blocked_reason, ''), COALESCE(blocked_override, 0)
 		FROM events
 		WHERE start_time < ? AND end_time > ?
 		`+extraWhere+`
@@ -133,13 +152,15 @@ func listWithWhere(ctx context.Context, from, to time.Time, extraWhere string) (
 	for rows.Next() {
 		var e Event
 		var ruleID sql.NullInt64
-		if err := rows.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID); err != nil {
+		var blockedOverride int
+		if err := rows.Scan(&e.ID, &e.Kind, &e.Title, &e.Domain, &e.Subtopic, &e.Description, &e.StartTime, &e.EndTime, &e.DurationSec, &e.Layer, &e.Status, &e.Source, &ruleID, &e.BlockedReason, &blockedOverride); err != nil {
 			return nil, err
 		}
 		if ruleID.Valid {
 			v := ruleID.Int64
 			e.RecurrenceRuleID = &v
 		}
+		e.BlockedOverride = blockedOverride == 1
 		out = append(out, e)
 	}
 	if err := rows.Err(); err != nil {
@@ -205,4 +226,12 @@ func normalizeAndValidate(e *Event) error {
 	}
 
 	return nil
+}
+
+func nullableText(v string) any {
+	trimmed := strings.TrimSpace(v)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
 }

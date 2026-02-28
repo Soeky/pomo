@@ -6,9 +6,10 @@ Minimal Pomodoro CLI with local SQLite storage, stats, and a built-in web UI.
 
 - Focus and break sessions: `start`, `break`, `stop`, `status`
 - Retroactive correction: `correct`
-- Stats reports: `stat` with day/week/month/year/semester/date ranges
+- Stats reports: `stat` with day/week/month/year/semester/date ranges (raw + effective focus totals)
 - Interactive delete flow: `delete`
 - Unified event CRUD (single events): `event add|list`
+- Workload targets + balanced scheduler: `plan target|constraint|generate`
 - One-command major upgrade flow: `upgrade` / `update`
 - Plan progress summary: `plan status`
 - Structured config management: `config list|get|set|describe`
@@ -106,6 +107,12 @@ pomo config describe [key]
 
 `pomo set` is still available as a compatibility alias for `pomo config set`.
 
+Effective-focus break credit is controlled by `break_credit_threshold_minutes` (default `10`):
+
+```bash
+pomo config set break_credit_threshold_minutes 10
+```
+
 ### Database and Delete Tools
 
 ```bash
@@ -127,10 +134,17 @@ pomo event recur expand --from 2026-03-01T00:00 --to 2026-03-31T23:59
 pomo event recur delete 1
 ```
 
-### Plan Progress
+### Plan & Scheduler
 
 ```bash
 pomo plan status --from 2026-03-01T00:00 --to 2026-03-08T00:00
+pomo plan target add --domain Math --subtopic Discrete --cadence weekly --hours 8
+pomo plan target add --title "Gym sessions" --domain Gym --subtopic General --cadence weekly --occurrences 4 --duration 2h
+pomo plan target list --active-only
+pomo plan constraint show
+pomo plan constraint set --weekdays mon,tue,wed,thu,fri --day-start 08:00 --day-end 22:00 --lunch-start 12:30 --lunch-duration 60 --dinner-start 19:00 --dinner-duration 60 --max-hours-day 8 --timezone Local
+pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --replace
+pomo plan generate --from 2026-03-01T00:00 --to 2026-03-08T00:00 --dry-run
 ```
 
 ### Upgrade / Update

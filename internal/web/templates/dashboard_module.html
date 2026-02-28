@@ -1,7 +1,9 @@
 {{define "dashboard-module.html"}}
 {{if eq .ID "totals"}}
-  <p><strong>Focus:</strong> {{.Data.FocusMinutes}} min</p>
-  <p><strong>Break:</strong> {{.Data.BreakMinutes}} min</p>
+  <p><strong>Focus (raw):</strong> {{.Data.FocusMinutes}} min</p>
+  <p><strong>Focus (effective):</strong> {{.Data.EffectiveFocusMinutes}} min</p>
+  <p><strong>Break credit:</strong> {{.Data.BreakCreditMinutes}} min</p>
+  <p><strong>Break (raw):</strong> {{.Data.BreakMinutes}} min</p>
   <p><strong>Sessions:</strong> {{.Data.Sessions}}</p>
 {{else if eq .ID "top_topics"}}
   {{if .Data}}

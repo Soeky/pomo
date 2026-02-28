@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/Soeky/pomo/internal/config"
+	"github.com/Soeky/pomo/internal/stats"
 )
 
 type Querier interface {
@@ -70,9 +73,11 @@ type totalsModule struct {
 }
 
 type TotalsData struct {
-	FocusMinutes int
-	BreakMinutes int
-	Sessions     int
+	FocusMinutes          int
+	EffectiveFocusMinutes int
+	BreakCreditMinutes    int
+	BreakMinutes          int
+	Sessions              int
 }
 
 func (totalsModule) ID() string    { return "totals" }
@@ -95,10 +100,36 @@ func (m totalsModule) Load(ctx context.Context, start, end time.Time) (any, erro
 		return nil, err
 	}
 
+	rows, err := m.q.QueryContext(ctx, `
+		SELECT type, COALESCE(topic, ''), COALESCE(duration, 0)
+		FROM sessions
+		WHERE start_time BETWEEN ? AND ?
+		ORDER BY start_time ASC, id ASC`, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	entries := make([]stats.EffectiveSession, 0)
+	for rows.Next() {
+		var entry stats.EffectiveSession
+		if err := rows.Scan(&entry.Type, &entry.Topic, &entry.DurationSeconds); err != nil {
+			return nil, err
+		}
+		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	totals := stats.ComputeEffectiveFocusTotals(entries, config.AppConfig.BreakCreditThresholdMinutes)
+
 	return TotalsData{
-		FocusMinutes: int(focusSec.Int64 / 60),
-		BreakMinutes: int(breakSec.Int64 / 60),
-		Sessions:     count,
+		FocusMinutes:          totals.RawFocusMinutes,
+		EffectiveFocusMinutes: totals.EffectiveFocusMinutes,
+		BreakCreditMinutes:    totals.CreditedBreakMinutes,
+		BreakMinutes:          int(breakSec.Int64 / 60),
+		Sessions:              count,
 	}, nil
 }
 

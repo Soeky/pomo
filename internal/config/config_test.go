@@ -13,7 +13,7 @@ func TestLoadConfigCreatesDefaultAndHandleSetCommand(t *testing.T) {
 
 	AppConfig = Config{}
 	LoadConfig()
-	if AppConfig.DefaultFocus != 25 || AppConfig.DefaultBreak != 5 {
+	if AppConfig.DefaultFocus != 25 || AppConfig.DefaultBreak != 5 || AppConfig.BreakCreditThresholdMinutes != 10 {
 		t.Fatalf("expected default config values, got %+v", AppConfig)
 	}
 
@@ -31,10 +31,13 @@ func TestLoadConfigCreatesDefaultAndHandleSetCommand(t *testing.T) {
 	if err := HandleSetCommand([]string{"semester_start", "2026-02-01"}); err != nil {
 		t.Fatalf("HandleSetCommand semester_start failed: %v", err)
 	}
+	if err := HandleSetCommand([]string{"break_credit_threshold_minutes", "12"}); err != nil {
+		t.Fatalf("HandleSetCommand break_credit_threshold_minutes failed: %v", err)
+	}
 
 	AppConfig = Config{}
 	LoadConfig()
-	if AppConfig.DefaultFocus != 40 || AppConfig.DefaultBreak != 10 || AppConfig.SemesterStart != "2026-02-01" {
+	if AppConfig.DefaultFocus != 40 || AppConfig.DefaultBreak != 10 || AppConfig.SemesterStart != "2026-02-01" || AppConfig.BreakCreditThresholdMinutes != 12 {
 		t.Fatalf("expected persisted config values, got %+v", AppConfig)
 	}
 }

@@ -667,6 +667,80 @@ func TestCalendarCanonicalEventPatchDelete(t *testing.T) {
 	}
 }
 
+func TestCalendarEventsExposeBlockingReasonForBlockedCanonicalEvents(t *testing.T) {
+	opened := openWebTestDB(t)
+	defer opened.Close()
+
+	s := newTestServer(t)
+	mux := http.NewServeMux()
+	s.registerRoutes(mux)
+
+	lectureID, err := events.Create(context.Background(), events.Event{
+		Kind:      "class",
+		Title:     "Lecture",
+		Domain:    "Math",
+		Subtopic:  "General",
+		StartTime: time.Date(2026, 3, 6, 9, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 3, 6, 10, 0, 0, 0, time.UTC),
+		Layer:     "planned",
+		Status:    "planned",
+		Source:    "manual",
+	})
+	if err != nil {
+		t.Fatalf("create lecture failed: %v", err)
+	}
+	tutorialID, err := events.Create(context.Background(), events.Event{
+		Kind:      "task",
+		Title:     "Tutorial",
+		Domain:    "Math",
+		Subtopic:  "General",
+		StartTime: time.Date(2026, 3, 6, 11, 0, 0, 0, time.UTC),
+		EndTime:   time.Date(2026, 3, 6, 12, 0, 0, 0, time.UTC),
+		Layer:     "planned",
+		Status:    "planned",
+		Source:    "manual",
+	})
+	if err != nil {
+		t.Fatalf("create tutorial failed: %v", err)
+	}
+	if err := events.AddDependency(context.Background(), tutorialID, lectureID, true); err != nil {
+		t.Fatalf("add tutorial dependency failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/calendar/events?start=2026-03-06T00:00:00Z&end=2026-03-07T00:00:00Z", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected calendar events status: %d", rec.Code)
+	}
+
+	var rows []calendarEvent
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+		t.Fatalf("parse calendar events json failed: %v", err)
+	}
+
+	targetID := "e-" + strconv.FormatInt(tutorialID, 10)
+	found := false
+	for _, row := range rows {
+		if row.ID != targetID {
+			continue
+		}
+		found = true
+		if row.Status != "blocked" {
+			t.Fatalf("expected blocked status for dependent canonical event, got %s", row.Status)
+		}
+		if strings.TrimSpace(row.BlockingReason) == "" {
+			t.Fatalf("expected non-empty blocking_reason for blocked event")
+		}
+		if !strings.Contains(strings.ToLower(row.Title), "blocked:") {
+			t.Fatalf("expected blocked reason surfaced in title, got %q", row.Title)
+		}
+	}
+	if !found {
+		t.Fatalf("blocked canonical event %s not found in calendar payload: %+v", targetID, rows)
+	}
+}
+
 func TestCalendarEventByIDMethodNotAllowed(t *testing.T) {
 	opened := openWebTestDB(t)
 	defer opened.Close()
