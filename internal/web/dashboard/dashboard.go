@@ -37,6 +37,7 @@ func NewRegistry(q Querier) *Registry {
 	r.Register(totalsModule{q: q})
 	r.Register(topTopicsModule{q: q})
 	r.Register(completionModule{q: q})
+	r.Register(upcomingScheduleModule{q: q})
 	return r
 }
 
@@ -66,6 +67,24 @@ func (r *Registry) All(ctx context.Context, start, end time.Time) ([]Definition,
 func (r *Registry) ByID(id string) (Module, bool) {
 	m, ok := r.modules[id]
 	return m, ok
+}
+
+func (r *Registry) Definitions() []Definition {
+	ids := make([]string, 0, len(r.modules))
+	for id := range r.modules {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+
+	out := make([]Definition, 0, len(ids))
+	for _, id := range ids {
+		m := r.modules[id]
+		out = append(out, Definition{
+			ID:    m.ID(),
+			Title: m.Title(),
+		})
+	}
+	return out
 }
 
 type totalsModule struct {
@@ -205,4 +224,69 @@ func (m completionModule) Load(ctx context.Context, start, end time.Time) (any, 
 		return nil, err
 	}
 	return CompletionData{PlannedCount: planned, DoneCount: done}, nil
+}
+
+type upcomingScheduleModule struct {
+	q Querier
+}
+
+type UpcomingScheduleData struct {
+	Items []UpcomingScheduleItem
+}
+
+type UpcomingScheduleItem struct {
+	Title           string
+	Topic           string
+	StartLabel      string
+	DurationMinutes int
+	Status          string
+	Source          string
+}
+
+func (upcomingScheduleModule) ID() string    { return "upcoming_schedule" }
+func (upcomingScheduleModule) Title() string { return "Upcoming Schedule" }
+
+func (m upcomingScheduleModule) Load(ctx context.Context, start, end time.Time) (any, error) {
+	if m.q == nil {
+		return nil, fmt.Errorf("dashboard database is not initialized")
+	}
+
+	rows, err := m.q.QueryContext(ctx, `
+		SELECT
+			COALESCE(title, ''),
+			CASE
+				WHEN TRIM(COALESCE(domain, '')) = '' THEN COALESCE(title, 'General')
+				WHEN TRIM(COALESCE(subtopic, '')) = '' THEN domain || '::General'
+				ELSE domain || '::' || subtopic
+			END AS topic,
+			substr(COALESCE(start_time, ''), 1, 16) AS start_label,
+			COALESCE(CAST((julianday(end_time) - julianday(start_time)) * 24 * 60 AS INTEGER), 0) AS duration_minutes,
+			COALESCE(status, 'planned'),
+			COALESCE(source, 'manual')
+		FROM planned_events
+		WHERE start_time BETWEEN ? AND ?
+		  AND COALESCE(status, 'planned') != 'canceled'
+		ORDER BY start_time ASC
+		LIMIT 6`, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]UpcomingScheduleItem, 0, 6)
+	for rows.Next() {
+		var item UpcomingScheduleItem
+		if err := rows.Scan(&item.Title, &item.Topic, &item.StartLabel, &item.DurationMinutes, &item.Status, &item.Source); err != nil {
+			return nil, err
+		}
+		if item.DurationMinutes < 0 {
+			item.DurationMinutes = 0
+		}
+		out = append(out, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return UpcomingScheduleData{Items: out}, nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/Soeky/pomo/internal/db"
@@ -19,8 +20,9 @@ import (
 var templatesFS embed.FS
 
 type ServerConfig struct {
-	Host string
-	Port int
+	Host           string
+	Port           int
+	AutoSleepAfter time.Duration
 }
 
 type Server struct {
@@ -127,9 +129,22 @@ func (s *Server) Run(ctx context.Context) error {
 	mux := http.NewServeMux()
 	s.registerRoutes(mux)
 
+	handler := http.Handler(mux)
+	cancelFunc := func() {}
+	if s.cfg.AutoSleepAfter > 0 {
+		var lastActivity atomic.Int64
+		lastActivity.Store(time.Now().UnixNano())
+		runCtx, cancel := context.WithCancel(ctx)
+		ctx = runCtx
+		cancelFunc = cancel
+		handler = withRequestActivity(handler, &lastActivity)
+		go monitorAutoSleep(ctx, cancel, &lastActivity, s.cfg.AutoSleepAfter)
+	}
+	defer cancelFunc()
+
 	httpServer := &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port),
-		Handler: mux,
+		Handler: handler,
 	}
 
 	errCh := make(chan error, 1)
@@ -145,6 +160,34 @@ func (s *Server) Run(ctx context.Context) error {
 			return nil
 		}
 		return err
+	}
+}
+
+func withRequestActivity(next http.Handler, lastActivity *atomic.Int64) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/healthz" {
+			lastActivity.Store(time.Now().UnixNano())
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func monitorAutoSleep(ctx context.Context, cancel context.CancelFunc, lastActivity *atomic.Int64, idle time.Duration) {
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			lastSeen := time.Unix(0, lastActivity.Load())
+			if time.Since(lastSeen) >= idle {
+				fmt.Printf("ℹ️ web daemon idle for %s, auto-sleeping\n", idle.Round(time.Second))
+				cancel()
+				return
+			}
+		}
 	}
 }
 

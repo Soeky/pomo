@@ -22,6 +22,11 @@ func TestRegistryByID(t *testing.T) {
 	if _, ok := r.ByID("missing"); ok {
 		t.Fatalf("did not expect missing module to be registered")
 	}
+
+	defs := r.Definitions()
+	if len(defs) != 4 {
+		t.Fatalf("expected 4 dashboard definitions, got %d", len(defs))
+	}
 }
 
 func TestRegistryAllWithoutDB(t *testing.T) {
@@ -55,8 +60,8 @@ func TestRegistryAllWithDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Registry.All failed: %v", err)
 	}
-	if len(defs) != 3 {
-		t.Fatalf("expected 3 dashboard modules, got %d", len(defs))
+	if len(defs) != 4 {
+		t.Fatalf("expected 4 dashboard modules, got %d", len(defs))
 	}
 }
 

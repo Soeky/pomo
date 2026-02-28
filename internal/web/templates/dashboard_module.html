@@ -1,21 +1,75 @@
 {{define "dashboard-module.html"}}
+<div class="module-head">
+  <h2>{{.Title}}</h2>
+  <span class="module-window">{{if eq .ID "upcoming_schedule"}}next 7 days{{else}}last 7 days{{end}}</span>
+</div>
 {{if eq .ID "totals"}}
-  <p><strong>Focus (raw):</strong> {{.Data.FocusMinutes}} min</p>
-  <p><strong>Focus (effective):</strong> {{.Data.EffectiveFocusMinutes}} min</p>
-  <p><strong>Break credit:</strong> {{.Data.BreakCreditMinutes}} min</p>
-  <p><strong>Break (raw):</strong> {{.Data.BreakMinutes}} min</p>
-  <p><strong>Sessions:</strong> {{.Data.Sessions}}</p>
+  <div class="metric-grid metric-grid-5">
+    <div class="metric-tile">
+      <span class="metric-label">Focus Raw</span>
+      <strong class="metric-value">{{.Data.FocusMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Focus Effective</span>
+      <strong class="metric-value">{{.Data.EffectiveFocusMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Break Credit</span>
+      <strong class="metric-value">{{.Data.BreakCreditMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Break Raw</span>
+      <strong class="metric-value">{{.Data.BreakMinutes}}m</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Sessions</span>
+      <strong class="metric-value">{{.Data.Sessions}}</strong>
+    </div>
+  </div>
+{{else if eq .ID "upcoming_schedule"}}
+  {{if .Data.Items}}
+    <div class="schedule-list">
+      {{range .Data.Items}}
+        <article class="schedule-item">
+          <div>
+            <strong>{{.Title}}</strong>
+            <div class="muted">{{.Topic}}</div>
+          </div>
+          <div class="schedule-item-meta">
+            <span>{{.StartLabel}}</span>
+            <span>{{.DurationMinutes}}m</span>
+            <span class="badge">{{.Status}}</span>
+          </div>
+        </article>
+      {{end}}
+    </div>
+  {{else}}
+    <p class="muted">No upcoming planned events in the next 7 days.</p>
+  {{end}}
 {{else if eq .ID "top_topics"}}
   {{if .Data}}
-    {{range .Data}}
-      <p>{{.Topic}}: {{.Minutes}} min ({{.Count}}x)</p>
-    {{end}}
+    <div class="topic-list">
+      {{range .Data}}
+        <div class="topic-row">
+          <span>{{.Topic}}</span>
+          <span>{{.Minutes}}m · {{.Count}}x</span>
+        </div>
+      {{end}}
+    </div>
   {{else}}
     <p class="muted">No focus sessions yet.</p>
   {{end}}
 {{else if eq .ID "planned_completion"}}
-  <p><strong>Planned:</strong> {{.Data.PlannedCount}}</p>
-  <p><strong>Done:</strong> {{.Data.DoneCount}}</p>
+  <div class="metric-grid metric-grid-2">
+    <div class="metric-tile">
+      <span class="metric-label">Planned Blocks</span>
+      <strong class="metric-value">{{.Data.PlannedCount}}</strong>
+    </div>
+    <div class="metric-tile">
+      <span class="metric-label">Completed</span>
+      <strong class="metric-value">{{.Data.DoneCount}}</strong>
+    </div>
+  </div>
 {{else}}
   <p class="muted">Unknown module.</p>
 {{end}}

@@ -318,6 +318,22 @@ Acceptance:
 ## 9) `feature/09-web-ui-refresh-and-runtime-mode`
 Goal: improve web UX while remaining lightweight.
 
+Status (2026-02-28): done
+- Refreshed web design system/templates for clearer hierarchy and denser calendar workflow:
+  - dashboard now uses schedule-centric module cards (including new upcoming-schedule module),
+  - calendar controls/forms compacted for high-density weekly planning.
+- Preserved server-rendered templates + HTMX and introduced route-level lazy module rendering on `/` via `/dashboard/modules/*` HTMX hydration.
+- Runtime mode behavior now implemented and documented:
+  - `web_mode` config (`daemon|on_demand`) is honored by `pomo web start`,
+  - explicit `--mode` added, compatibility `--daemon` retained,
+  - chosen default strategy: `daemon` with 15-minute auto-sleep + health-checked startup.
+- Asset/render optimization updates:
+  - removed unused global Pico CSS dependency,
+  - dashboard shell no longer performs eager module DB queries.
+- Validation artifacts recorded:
+  - web handler tests stayed green (`go test ./...`),
+  - startup latency and daemon RSS before/after comparison documented in `docs/performance/task9_web_runtime.md`.
+
 - Design system refresh in templates/CSS:
   - clearer hierarchy, denser calendar controls, schedule-centric dashboard cards
 - Keep HTMX + templates.

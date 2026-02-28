@@ -13,71 +13,107 @@
     </div>
 
     <div class="page-header">
-      <h1 class="page-title">Calendar</h1>
-      <span class="badge">Balanced Week View</span>
+      <div>
+        <h1 class="page-title">Calendar</h1>
+        <p class="page-subtitle">Dense week planning with drag/resize editing for sessions, planned events, and recurring blocks.</p>
+      </div>
+      <span class="badge">Schedule Workspace</span>
     </div>
 
     <div class="calendar-layout">
-      <section id="calendar"></section>
-      <aside class="panel">
-        <h2>Create Planned Event</h2>
-        <form id="new-event" hx-post="/calendar/events" hx-swap="none">
-          <label for="domain">Domain</label>
-          <input id="domain" name="domain" required>
+      <section class="panel calendar-main">
+        <div class="calendar-legend" aria-label="Calendar legend">
+          <span class="legend-item"><span class="legend-swatch legend-focus"></span>Focus</span>
+          <span class="legend-item"><span class="legend-swatch legend-break"></span>Break</span>
+          <span class="legend-item"><span class="legend-swatch legend-planned"></span>Planned</span>
+          <span class="legend-item"><span class="legend-swatch legend-recurring"></span>Recurring</span>
+          <span class="legend-item"><span class="legend-swatch legend-scheduler"></span>Scheduler</span>
+        </div>
+        <section id="calendar"></section>
+      </section>
 
-          <label for="subtopic">Subtopic</label>
-          <input id="subtopic" name="subtopic" placeholder="General">
+      <aside class="panel calendar-side">
+        <section class="panel-block">
+          <h2>Create Planned Event</h2>
+          <form id="new-event" class="dense-form" hx-post="/calendar/events" hx-swap="none">
+            <label for="domain">Domain</label>
+            <input id="domain" name="domain" required>
 
-          <label for="description">Description</label>
-          <textarea id="description" name="description"></textarea>
+            <label for="subtopic">Subtopic</label>
+            <input id="subtopic" name="subtopic" placeholder="General">
 
-          <label for="start_time">Start</label>
-          <input id="start_time" type="datetime-local" name="start_time" required>
+            <label for="description">Description</label>
+            <textarea id="description" name="description"></textarea>
 
-          <label for="end_time">End</label>
-          <input id="end_time" type="datetime-local" name="end_time" required>
+            <div class="form-split">
+              <div>
+                <label for="start_time">Start</label>
+                <input id="start_time" type="datetime-local" name="start_time" required>
+              </div>
+              <div>
+                <label for="end_time">End</label>
+                <input id="end_time" type="datetime-local" name="end_time" required>
+              </div>
+            </div>
 
-          <button class="btn btn-primary" type="submit">Create Event</button>
-        </form>
-        <p id="event-status" class="muted"></p>
+            <button class="btn btn-primary" type="submit">Create Event</button>
+          </form>
+          <p id="event-status" class="muted"></p>
+        </section>
 
-        <hr>
-        <h2>Recurring Rules</h2>
-        <form id="new-recur">
-          <label for="recur_title">Title</label>
-          <input id="recur_title" name="title" required>
+        <section class="panel-block">
+          <h2>Recurring Rules</h2>
+          <form id="new-recur" class="dense-form">
+            <label for="recur_title">Title</label>
+            <input id="recur_title" name="title" required>
 
-          <label for="recur_domain">Domain</label>
-          <input id="recur_domain" name="domain" required>
+            <div class="form-split">
+              <div>
+                <label for="recur_domain">Domain</label>
+                <input id="recur_domain" name="domain" required>
+              </div>
+              <div>
+                <label for="recur_subtopic">Subtopic</label>
+                <input id="recur_subtopic" name="subtopic" placeholder="General">
+              </div>
+            </div>
 
-          <label for="recur_subtopic">Subtopic</label>
-          <input id="recur_subtopic" name="subtopic" placeholder="General">
+            <div class="form-split">
+              <div>
+                <label for="recur_start">Start</label>
+                <input id="recur_start" type="datetime-local" name="start_time" required>
+              </div>
+              <div>
+                <label for="recur_duration">Duration (minutes)</label>
+                <input id="recur_duration" type="number" min="1" name="duration_minutes" value="60" required>
+              </div>
+            </div>
 
-          <label for="recur_start">Start</label>
-          <input id="recur_start" type="datetime-local" name="start_time" required>
+            <div class="form-split">
+              <div>
+                <label for="recur_freq">Frequency</label>
+                <select id="recur_freq" name="freq">
+                  <option value="daily">daily</option>
+                  <option value="weekly" selected>weekly</option>
+                  <option value="monthly">monthly</option>
+                </select>
+              </div>
+              <div>
+                <label for="recur_interval">Interval</label>
+                <input id="recur_interval" type="number" min="1" name="interval" value="1">
+              </div>
+            </div>
 
-          <label for="recur_duration">Duration (minutes)</label>
-          <input id="recur_duration" type="number" min="1" name="duration_minutes" value="60" required>
+            <label for="recur_byday">By Day (MO,TU,...)</label>
+            <input id="recur_byday" name="byday" placeholder="MO,WE,FR">
 
-          <label for="recur_freq">Frequency</label>
-          <select id="recur_freq" name="freq">
-            <option value="daily">daily</option>
-            <option value="weekly" selected>weekly</option>
-            <option value="monthly">monthly</option>
-          </select>
+            <label for="recur_bymonthday">By Month Day</label>
+            <input id="recur_bymonthday" type="number" min="1" max="31" name="bymonthday">
 
-          <label for="recur_interval">Interval</label>
-          <input id="recur_interval" type="number" min="1" name="interval" value="1">
-
-          <label for="recur_byday">By Day (MO,TU,...)</label>
-          <input id="recur_byday" name="byday" placeholder="MO,WE,FR">
-
-          <label for="recur_bymonthday">By Month Day</label>
-          <input id="recur_bymonthday" type="number" min="1" max="31" name="bymonthday">
-
-          <button class="btn btn-secondary" type="submit">Add Recurring Rule</button>
-        </form>
-        <div id="recur-list" class="muted">Loading recurring rules...</div>
+            <button class="btn btn-secondary" type="submit">Add Recurring Rule</button>
+          </form>
+          <div id="recur-list" class="recur-list muted">Loading recurring rules...</div>
+        </section>
       </aside>
     </div>
   </main>
@@ -89,9 +125,26 @@
     initialView: 'timeGridWeek',
     editable: true,
     selectable: true,
-    height: 'auto',
     nowIndicator: true,
+    allDaySlot: false,
+    slotDuration: '00:15:00',
+    snapDuration: '00:15:00',
+    slotLabelInterval: '01:00:00',
+    scrollTime: '08:00:00',
+    height: 'auto',
+    expandRows: true,
     dayHeaderFormat: { weekday: 'short', month: 'numeric', day: 'numeric' },
+    headerToolbar: {
+      left: 'prev,next today',
+      center: 'title',
+      right: 'timeGridDay,timeGridWeek,dayGridMonth'
+    },
+    buttonText: {
+      today: 'Today',
+      timeGridDay: 'Day',
+      timeGridWeek: 'Week',
+      dayGridMonth: 'Month'
+    },
     events: '/calendar/events',
     select: async (info) => {
       const startInput = document.getElementById('start_time');
@@ -157,8 +210,8 @@
     const html = rows.map((row) => {
       const end = row.EndDate ? row.EndDate : '-';
       return `
-        <div class="toolbar" style="margin-bottom:8px; border-top:1px solid #e2e8f0; padding-top:8px;">
-          <div style="flex:1 1 100%;">
+        <div class="recur-row">
+          <div class="recur-meta">
             <strong>#${row.ID}</strong> ${row.Title}<br>
             <small>${row.Domain}::${row.Subtopic} | ${row.RRule} | start ${row.StartDate} | until ${end}</small>
           </div>

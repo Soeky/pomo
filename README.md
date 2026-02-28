@@ -179,16 +179,28 @@ pomo web logs
 pomo web hosts-check
 ```
 
-Default web behavior:
-- Runs as daemon by default (`--daemon=true`)
-- Binds `127.0.0.1:3210` (or next free port up to `3299`)
-- Opens browser automatically (`--open=true`)
-- Uses `http://pomo:<port>` if hosts entry exists, always prints localhost fallback
+Web runtime modes:
+- `daemon` (default): starts background web process with auto-sleep after 15 minutes of inactivity
+- `on_demand`: runs in foreground and opens browser only after warm health-check passes
+
+Mode resolution order:
+1. `--mode` flag
+2. compatibility `--daemon` flag
+3. `web_mode` config value
+
+Set default mode:
+
+```bash
+pomo config set web_mode daemon
+pomo config set web_mode on_demand
+```
 
 Start flags:
 
 ```bash
-pomo web start --host 127.0.0.1 --port 3210 --daemon --open
+pomo web start --host 127.0.0.1 --port 3210 --mode daemon --open=false
+pomo web start --mode on_demand
+pomo web start --daemon=false      # compatibility alias for --mode on_demand
 ```
 
 Web endpoints include dashboard (`/`), calendar (`/calendar`), sessions (`/sessions`), SQL console (`/sql`), and health (`/healthz`).

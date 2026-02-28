@@ -226,6 +226,26 @@ Transform `pomo` from a simple pomodoro tracker into a full time management appl
 - Ambiguity default used:
   - for recurring-rule edit in TUI, leaving fields blank keeps current values; entering `-` for `until` clears rule end date.
 
+## Task 9 Decisions and Caveats (Web UI Refresh + Runtime Mode)
+- Runtime startup strategy chosen: `daemon + auto-sleep` (default).
+  - daemon startup keeps warm health-check readiness gate before reporting success.
+  - daemon process auto-sleeps after 15 minutes of non-health request inactivity.
+- Web mode resolution policy (`pomo web start`):
+  - precedence: `--mode` > compatibility `--daemon` > config `web_mode`.
+  - valid modes remain `daemon` and `on_demand`.
+  - backward compatibility preserved: `--daemon=false` maps to `on_demand`.
+- Daemon lifecycle invariant:
+  - hidden `web serve` now cleans stale runtime files (`web.pid`, `web.state.json`) on exit, including auto-sleep shutdown.
+- Dashboard rendering policy update:
+  - `/` now renders a lightweight shell and lazy-loads modules via HTMX route-level requests to `/dashboard/modules/<id>`.
+  - module hydration windows are explicit: default last 7 days; `upcoming_schedule` uses next 7 days (`?window=upcoming`).
+- Dashboard module surface update:
+  - added `upcoming_schedule` card sourced from `planned_events` for schedule-first visibility.
+- Asset optimization decision:
+  - removed global Pico CSS dependency; templates rely on shared in-repo style system + route-scoped FullCalendar assets.
+- Validation artifact note:
+  - startup/memory comparisons are tracked in `docs/performance/task9_web_runtime.md` using isolated-home harness runs.
+
 ## Current Baseline
 - Project currently has sessions + planned events + calendar + dashboard + SQL page.
 - `pomo set` exists but is unclear; target is `pomo config get|set|list|describe`.
